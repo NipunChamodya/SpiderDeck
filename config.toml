@@ -1,0 +1,18 @@
+[crawl]
+# Domains SpiderDeck is allowed to fetch from. Add your own before crawling.
+allowed_domains = []
+max_pages = 50
+max_depth = 2
+delay_seconds = 1.5
+respect_robots_txt = true
+user_agent = "SpiderDeckBot/0.1 (+authorized personal research tool)"
+allow_localhost = false
+
+[output]
+dir = "output"
+
+[fx]
+enabled = true
+
+[ranking]
+offline_only = true
