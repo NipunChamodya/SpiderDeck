@@ -70,13 +70,12 @@ def run_security_check() -> bool:
 
 def run_menu(args: argparse.Namespace) -> None:
     from core.config import load_config
-    from core.logging_setup import get_logger
     from fx import effects
     from ui import menu
 
     config = load_config()
     fx_enabled = config.fx_enabled and not args.no_fx
-    logger = get_logger()
+    imported_records = []
 
     effects.matrix_intro(enabled=fx_enabled)
     effects.glitch_title("S P I D E R D E C K", enabled=fx_enabled)
@@ -94,7 +93,23 @@ def run_menu(args: argparse.Namespace) -> None:
             print("see README.md for the Google Sheets restriction notice.\n")
 
         elif choice.startswith("2"):
-            print("\n[Local file/folder reader] — coming in Phase 2 of the build.\n")
+            from handlers.local import DocumentImportError, import_document
+            requested = menu.prompt_path("Local document to import:")
+            if not requested:
+                continue
+            if args.dry_run:
+                print("Dry run: no document read.")
+                continue
+            try:
+                result = import_document(requested, config.imports)
+            except DocumentImportError as exc:
+                print(f"Import failed: {exc}")
+                continue
+            imported_records.extend(result.records)
+            print(f"Imported {len(result.records)} records; {len(imported_records)} records in this session.")
+            print("Session data is held in memory only and will be lost on exit.")
+            for warning in result.warnings:
+                print(f"Notice: {warning}")
 
         elif choice.startswith("3"):
             print("\n[Manual-login browser session] — coming in Phase 3 of the build.\n")

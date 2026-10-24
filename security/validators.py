@@ -29,11 +29,12 @@ def safe_output_path(base_dir: Path, requested: str | Path) -> Path:
     that escapes base_dir. Use this for every file SpiderDeck WRITES.
     """
     base_dir = base_dir.resolve()
-    base_dir.mkdir(parents=True, exist_ok=True)
-
+    requested = Path(requested)
+    if requested.is_absolute() or "\\" in str(requested) or ".." in requested.parts:
+        raise UnsafePathError("Output path must be a relative path without traversal.")
     candidate = (base_dir / requested).resolve()
 
-    if not str(candidate).startswith(str(base_dir)):
+    if not candidate.is_relative_to(base_dir) or candidate == base_dir:
         raise UnsafePathError(
             f"Refusing to write outside output directory: {requested}"
         )
@@ -50,7 +51,7 @@ def safe_input_path(requested: str | Path) -> Path:
         raise UnsafePathError(f"Path traversal pattern detected: {requested}")
 
     path = Path(text).expanduser().resolve()
-    if not path.exists():
+    if not path.is_file():
         raise UnsafePathError(f"Path does not exist: {path}")
     return path
 
@@ -78,15 +79,15 @@ class UnsafeURLError(ValueError):
 
 def _is_private_ip(host: str) -> bool:
     try:
-        ip = ipaddress.ip_address(host)
+        addresses = [ipaddress.ip_address(host)]
     except ValueError:
-        # host is a domain name, not a literal IP — resolve it
         try:
-            resolved = socket.gethostbyname(host)
-            ip = ipaddress.ip_address(resolved)
-        except (socket.gaierror, ValueError):
-            return False
-    return any(ip in net for net in _PRIVATE_NETWORKS)
+            addresses = [ipaddress.ip_address(item[4][0])
+                         for item in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)]
+        except (socket.gaierror, ValueError) as exc:
+            raise UnsafeURLError("Destination DNS resolution failed.") from exc
+    return not addresses or any(not ip.is_global for ip in addresses)
+
 
 
 def validate_url(
@@ -98,8 +99,9 @@ def validate_url(
     Raise UnsafeURLError unless:
       - scheme is http/https
       - host is on the user's allowlist
-      - host does not resolve to a private/internal IP (blocks SSRF via
-        redirects or DNS rebinding), unless allow_localhost=True for dev mode
+      - all resolved addresses are globally routable, unless dev mode is enabled
+    This is preflight validation only: transports must pin destinations and
+    revalidate redirects. It does not prevent DNS rebinding on its own.
     Returns the normalized URL if it passes.
     """
     parsed = urlparse(url)
@@ -110,7 +112,17 @@ def validate_url(
     if not parsed.hostname:
         raise UnsafeURLError(f"No hostname in URL: {url}")
 
+    if parsed.username is not None or parsed.password is not None:
+        raise UnsafeURLError("URL userinfo is not permitted.")
+    if not allowed_domains:
+        raise UnsafeURLError("An explicit domain allowlist is required.")
+    try:
+        parsed.port
+    except ValueError as exc:
+        raise UnsafeURLError("Invalid URL port.") from exc
     host = parsed.hostname.lower()
+    if not any(host == d.lower() or host.endswith("." + d.lower()) for d in allowed_domains):
+        raise UnsafeURLError("Host is not in the allowlist.")
 
     if not allow_localhost and _is_private_ip(host):
         raise UnsafeURLError(f"Refusing request to private/internal host: {host}")

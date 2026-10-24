@@ -1,85 +1,123 @@
 # SpiderDeck
 
-An authorized-access data collection and ranking tool. SpiderDeck only
-collects from sources you're permitted to access — it will not bypass
-view-only restrictions, paywalls, logins, or download/copy/print blocks.
-If a source is restricted, it stops and tells you to request an export.
+Local-first research document intelligence for Python 3.13 (tested on macOS).
+SpiderDeck imports authorized local documents without network requests or remote AI.
+Website collection, persistence, search, exports and ranking are not implemented yet.
 
-This is **Phase 1** of the build: installer, menu, config, logging, and the
-security module. Crawling, file reading, and ranking are stubbed in the menu
-and get filled in during later phases.
-
-## Setup (macOS, zsh)
+## Installation
 
 ```zsh
-cd ~/supervisor-finder
-mkdir -p spiderdeck
-# copy all SpiderDeck files into ~/supervisor-finder/spiderdeck
-cd spiderdeck
-
-python3 spiderdeck.py --setup
-```
-
-This creates a `.venv`, asks before installing packages, and tells you the
-exact command to re-run afterward. Then:
-
-```zsh
+bash install.sh
 source .venv/bin/activate
-python spiderdeck.py
-```
-
-On first real run it will ask whether to install Playwright's browsers
-(Chromium, Firefox) — say yes if you plan to use the browser-based options.
-
-## Run the security self-check any time
-
-```zsh
-python spiderdeck.py --security-check
-```
-
-This tests SpiderDeck's own input validators (path traversal, SSRF,
-shell-injection guards) against a battery of malicious-looking inputs.
-It does not touch any external target.
-
-## Disable the visual effects
-
-```zsh
+python verify.py
 python spiderdeck.py --no-fx
 ```
 
-## Project layout
+The existing installer installs the repository's full dependency list, including
+future-phase dependencies. Browser installation is optional and unnecessary for
+local imports. No new runtime dependency was added for local importing.
+`--setup` is not an available command. `--no-fx` disables cosmetic animations.
 
+## Importing
+
+Choose **2) Import a local document**, then enter a readable file path:
+
+```text
+Local document to import: /Users/me/Documents/supervisors.xlsx
+Imported 12 records; 12 records in this session.
+Session data is held in memory only and will be lost on exit.
 ```
-spiderdeck.py       entry point: bootstrap, self-check, menu loop
-core/                config loading, logging
-security/            validators + self-check suite (read this first)
-handlers/            web / file input handlers (Phase 2–3)
-rank/                TF-IDF / embedding ranking (Phase 5)
-fx/                  cosmetic terminal effects only — never slows logic
-ui/                  CLI menu (questionary)
-tests/               pytest unit tests
-config.toml          domain allowlist, crawl limits, feature toggles
-logs/                audit log of what was accessed and when
-output/              all collected data is written here, nowhere else
+
+Inputs may be outside `output/`. Folder recursion is not supported. Imports
+are atomic: a failed import returns no partial records. Documents are not
+printed or logged. Results accumulate in memory during the menu session;
+there is no browse/export command yet. The reusable API is:
+
+```python
+from handlers.local import import_document
+
+result = import_document("/Users/me/Documents/supervisors.csv")
+for record in result.records:
+    payload = record.to_dict()  # JSON-compatible values and UTC timestamp
 ```
 
-## Before you crawl anything
+Supported formats:
 
-Open `config.toml` and add the domains you're authorized to collect from to
-`allowed_domains`. Requests to domains not on this list, or to private/
-internal IP ranges, are rejected by `security/validators.py` regardless of
-what a page tries to redirect you to.
+| Format | Behavior |
+| --- | --- |
+| CSV | UTF-8/BOM, comma delimiter, first row headers; one record per data row |
+| XLSX | All worksheets, first row headers; cached values, no formula evaluation |
+| PDF | Text per page; low-text pages produce warnings; no OCR |
+| DOCX | Paragraphs and table rows; no embedded content execution |
+| JSON | Root array items or one root value; nested fields preserved |
+| TXT / Markdown | UTF-8/BOM text, one record per document |
+| HTML / HTM | Local text only; scripts/styles removed; external assets never fetched |
 
-## On the Google Sheets restriction
+Blank/duplicate CSV and XLSX headers get deterministic unique names. Blank
+rows are skipped; inconsistent row widths are rejected. Spreadsheet cell values
+are normalized to strings. Empty documents return warnings. DOCX tables use
+positional column names. PDF text extraction permission flags are respected.
 
-If a sheet shows "Security limitations" / view-only with downloads
-disabled, SpiderDeck's Google Sheets handler (Phase 3) will detect this and
-stop rather than attempting screen-reader scraping or OCR of the grid — ask
-the sheet owner for an export instead.
+Records contain source path, format, title, normalized NFC text, fields, UTC
+extraction time, and location metadata (row/worksheet, page, paragraph/table or
+JSON pointer). IDs are SHA-256 of canonical JSON containing the absolute source,
+format, text, fields and location, excluding extraction time. Reimporting the
+same content at the same path produces the same IDs; moving a file changes them.
+Cross-source content deduplication belongs to the next storage phase.
+Timestamps serialize as ISO 8601 UTC with a `Z` suffix.
 
-## Run tests
+## Configuration and limits
+
+`config.toml` is loaded relative to the application directory. `[import]`
+configures input bytes (default 20 MiB), expanded archive bytes (100 MiB), ZIP
+members (5,000), records (20,000), extracted text/field characters (10 million),
+PDF pages (500), and minimum page text (10 characters). Limits must be positive
+integers. Imports use bounded input snapshots and lazy parser imports. They do
+not stream indefinitely; parser CPU and peak memory are not hard sandboxed.
+Keep limits modest on an 8 GB Mac and import only documents you trust enough to
+process locally. XLSX/DOCX archive limits are checked before parsing.
+
+## Security and authorization
+
+Read [SECURITY.md](SECURITY.md). Local import never executes macros, scripts or
+shell commands. Macro-bearing Office files are rejected. Encrypted or restricted
+PDFs require an authorized export. No OCR or restriction workaround is provided.
+Authentication alone does not authorize bulk extraction. Obtain permission and
+an owner-provided export where access is restricted.
+
+No import data, embeddings, credentials or document contents are sent to remote
+services. No generated files are written during import. Output path validation
+rejects traversal, absolute paths and resolved symlink escapes; future writers
+must additionally enforce exclusive creation and defend against path races.
+
+## Verification
 
 ```zsh
-pip install pytest
-pytest
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+python spiderdeck.py --security-check
+bash -n install.sh
+python -m pip_audit --local
 ```
+
+Tests generate all supported document formats in temporary directories and run
+offline. The security self-check has 11 in-process cases; it is a smoke test,
+not proof of network security. The dependency audit needs network access.
+
+## Troubleshooting and limitations
+
+For unreadable/corrupt documents, verify permissions and obtain a valid original
+export. Text inputs must be UTF-8. For scanned or low-text PDFs, request an
+authorized text-based export; no text is silently fabricated. Cached XLSX formula
+values may be absent or stale. DOCX headers, footers, text boxes and nested tables
+are not imported. HTML is not rendered and Markdown is retained as source text.
+Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
+
+Next: transactional SQLite storage with schema versioning, reimport/content
+hashing, search and safe CSV/JSON exports. After that, implement configurable
+research ideas and explainable offline TF-IDF supervisor ranking. Ranking is
+not currently available, and no suitability or evaluation claims are made.
+
+The Phase A dependency audit found two known vulnerabilities in the installed
+PDF dependency (`pdfminer-six==20231228`). See [SECURITY.md](SECURITY.md) before
+processing untrusted PDFs; upgrading the PDF stack is a priority follow-up.

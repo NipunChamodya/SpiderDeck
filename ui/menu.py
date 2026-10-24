@@ -7,7 +7,7 @@ console = Console()
 
 MAIN_MENU_CHOICES = [
     "1) Crawl a website URL",
-    "2) Read a local file or folder",
+    "2) Import a local document",
     "3) Open a browser for manual login, then extract what's allowed",
     "4) Clean / structure collected results",
     "5) Rank results against my ideas",

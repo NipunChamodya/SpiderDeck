@@ -39,7 +39,7 @@ def _case(label: str, fn, *, expect_pass: bool) -> tuple[str, bool, str]:
 
 
 def run() -> bool:
-    base = Path.home() / "spiderdeck-test-output"
+    base = Path(__file__).resolve().parent.parent / "output"
     cases = [
         # --- Path traversal: must be BLOCKED ---
         _case(
@@ -82,7 +82,7 @@ def run() -> bool:
         # --- Legit URL: must PASS ---
         _case(
             "Allowlisted HTTPS domain",
-            lambda: validate_url("https://example.com/page", ["example.com"]),
+            lambda: validate_url("https://8.8.8.8/page", ["8.8.8.8"]),
             expect_pass=True,
         ),
         # --- Shell injection: must be BLOCKED ---

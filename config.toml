@@ -11,6 +11,15 @@ allow_localhost = false
 [output]
 dir = "output"
 
+[import]
+max_file_bytes = 20971520
+max_expanded_bytes = 104857600
+max_archive_members = 5000
+max_records = 20000
+max_text_chars = 10000000
+max_pdf_pages = 500
+min_pdf_text_chars = 10
+
 [fx]
 enabled = true
 

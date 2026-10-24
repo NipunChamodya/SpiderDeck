@@ -2,7 +2,7 @@ rich==13.9.4
 questionary==2.0.1
 playwright==1.64.1
 httpx==0.28.1
-selectolax==0.3.21
+selectolax==1.0.2
 beautifulsoup4==4.12.3
 pandas==2.2.3
 openpyxl==3.1.5

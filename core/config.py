@@ -24,11 +24,28 @@ class OutputConfig:
 
 
 @dataclass
+class ImportConfig:
+    max_file_bytes: int = 20 * 1024 * 1024
+    max_expanded_bytes: int = 100 * 1024 * 1024
+    max_archive_members: int = 5000
+    max_records: int = 20000
+    max_text_chars: int = 10_000_000
+    max_pdf_pages: int = 500
+    min_pdf_text_chars: int = 10
+
+    def __post_init__(self) -> None:
+        for value in vars(self).values():
+            if type(value) is not int or value <= 0:
+                raise ValueError("Import limits must be positive integers.")
+
+
+@dataclass
 class AppConfig:
     crawl: CrawlConfig
     output: OutputConfig
     fx_enabled: bool = True
     ranking_offline_only: bool = True
+    imports: ImportConfig = field(default_factory=ImportConfig)
 
 
 def load_config(path: Path = CONFIG_PATH) -> AppConfig:
@@ -40,4 +57,5 @@ def load_config(path: Path = CONFIG_PATH) -> AppConfig:
         output=OutputConfig(**raw.get("output", {})),
         fx_enabled=raw.get("fx", {}).get("enabled", True),
         ranking_offline_only=raw.get("ranking", {}).get("offline_only", True),
+        imports=ImportConfig(**raw.get("import", {})),
     )
