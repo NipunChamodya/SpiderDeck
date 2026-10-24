@@ -8,8 +8,7 @@ Usage:
     python spiderdeck.py --no-fx          # disable cosmetic effects
     python spiderdeck.py --dry-run        # show what would happen, do nothing
 
-First run will offer to create a virtual environment and install
-dependencies. Nothing is installed without asking.
+Use install.sh to create the virtual environment and install dependencies.
 """
 
 from __future__ import annotations
@@ -75,7 +74,16 @@ def run_menu(args: argparse.Namespace) -> None:
 
     config = load_config()
     fx_enabled = config.fx_enabled and not args.no_fx
-    imported_records = []
+    from core.storage import RecordStore, StorageError
+    from security.validators import UnsafePathError
+
+    store = None
+
+    def get_store() -> RecordStore:
+        nonlocal store
+        if store is None:
+            store = RecordStore(ROOT / Path(config.output.dir).expanduser())
+        return store
 
     effects.matrix_intro(enabled=fx_enabled)
     effects.glitch_title("S P I D E R D E C K", enabled=fx_enabled)
@@ -88,9 +96,7 @@ def run_menu(args: argparse.Namespace) -> None:
         choice = menu.main_menu()
 
         if choice.startswith("1"):
-            print("\n[Web crawl] — coming in Phase 3 of the build.")
-            print("For now: use option 3 to open a page manually, or")
-            print("see README.md for the Google Sheets restriction notice.\n")
+            print("\nWeb collection is not implemented. Import an authorized local export with option 2.\n")
 
         elif choice.startswith("2"):
             from handlers.local import DocumentImportError, import_document
@@ -102,20 +108,42 @@ def run_menu(args: argparse.Namespace) -> None:
                 continue
             try:
                 result = import_document(requested, config.imports)
+                summary = get_store().save_import(result)
             except DocumentImportError as exc:
                 print(f"Import failed: {exc}")
                 continue
-            imported_records.extend(result.records)
-            print(f"Imported {len(result.records)} records; {len(imported_records)} records in this session.")
-            print("Session data is held in memory only and will be lost on exit.")
+            except StorageError as exc:
+                print(f"Storage failed: {exc}")
+                continue
+            except (OSError, UnsafePathError):
+                print("Storage failed. Check output permissions and disk space; no import was committed.")
+                continue
+            print(f"Imported {len(result.records)} records; saved {summary.inserted} new records; "
+                  f"skipped {summary.duplicates} duplicate identifiers.")
+            if summary.content_duplicates:
+                print(f"{summary.content_duplicates} records have content already stored; source provenance retained.")
+            if summary.reimported:
+                print("This document's record set was imported previously.")
             for warning in result.warnings:
                 print(f"Notice: {warning}")
+            del result  # SQLite owns the persisted copy; do not accumulate sessions in RAM.
 
-        elif choice.startswith("3"):
-            print("\n[Manual-login browser session] — coming in Phase 3 of the build.\n")
-
-        elif choice.startswith("4"):
-            print("\n[Clean / structure results] — coming in Phase 4 of the build.\n")
+        elif choice.startswith(("3", "4", "9")):
+            from ui import records
+            try:
+                if args.dry_run:
+                    print("Dry run: database and exports left untouched.")
+                    continue
+                if choice.startswith("9"):
+                    records.export(get_store())
+                else:
+                    records.browse(get_store(), search=choice.startswith("4"))
+            except FileExistsError:
+                print("Export already exists. Choose a new filename; existing data was preserved.")
+            except (StorageError, ValueError) as exc:
+                print(f"Operation failed: {records.terminal_text(str(exc), 300)}")
+            except OSError:
+                print("Operation failed. Check output permissions and disk space; existing data was preserved.")
 
         elif choice.startswith("5"):
             print("\n[Ranking against your ideas] — coming in Phase 5 of the build.\n")

@@ -175,6 +175,9 @@ def test_menu_import(tmp_path, monkeypatch, capsys):
     import spiderdeck
     from ui import menu
     from fx import effects
+    from core.config import AppConfig, CrawlConfig, OutputConfig
+    monkeypatch.setattr('core.config.load_config', lambda: AppConfig(
+        CrawlConfig(), OutputConfig(str(tmp_path / 'output'))))
     path = write(tmp_path, 'notes.txt', 'Research')
     choices = iter(['2) Import a local document', '8) Quit'])
     monkeypatch.setattr(menu, 'main_menu', lambda: next(choices))
@@ -213,3 +216,12 @@ def test_import_errors_do_not_reveal_document_contents(tmp_path):
     with pytest.raises(DocumentImportError) as raised:
         import_document(path)
     assert 'SECRET' not in str(raised.value)
+
+
+@pytest.mark.parametrize('installed', ['20231228', '20251107', 'unknown'])
+def test_outdated_pdf_stack_refused(tmp_path, installed):
+    path = tmp_path / 'notes.pdf'
+    path.write_bytes(pdf_bytes('Research'))
+    with patch('importlib.metadata.version', return_value=installed):
+        with pytest.raises(DocumentImportError, match='parser is outdated'):
+            import_document(path)

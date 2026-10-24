@@ -150,7 +150,14 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
         except XMLSyntaxError as exc:
             raise DocumentImportError("Malformed DOCX XML; obtain a valid document export.") from exc
     elif kind == "pdf":
+        from importlib.metadata import version
+        installed = version("pdfminer.six")
+        if not installed.isdigit() or int(installed) < 20251230:
+            raise DocumentImportError(
+                "PDF parser is outdated or unrecognized; install the patched requirements before importing PDFs."
+            )
         import pdfplumber
+        from pdfplumber.utils.exceptions import PdfminerException
         from pdfminer.psparser import PSException
         try:
             with pdfplumber.open(io.BytesIO(data)) as pdf:
@@ -165,7 +172,7 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                     else:
                         add(text, {}, {"page": number})
                     page.close()
-        except PSException as exc:
+        except (PSException, PdfminerException) as exc:
             raise DocumentImportError("Unreadable or encrypted PDF; request an authorized text-based export.") from exc
     else:
         text = data.decode("utf-8-sig")

@@ -8,11 +8,12 @@ console = Console()
 MAIN_MENU_CHOICES = [
     "1) Crawl a website URL",
     "2) Import a local document",
-    "3) Open a browser for manual login, then extract what's allowed",
-    "4) Clean / structure collected results",
+    "3) Browse collected records",
+    "4) Search intelligence database",
     "5) Rank results against my ideas",
     "6) Run security self-check",
     "7) Settings",
+    "9) Export results",
     "8) Quit",
 ]
 
@@ -30,6 +31,10 @@ def prompt_path(message: str) -> str:
 
 
 def prompt_url(message: str) -> str:
+    return questionary.text(message).ask() or ""
+
+
+def prompt_text(message: str) -> str:
     return questionary.text(message).ask() or ""
 
 
