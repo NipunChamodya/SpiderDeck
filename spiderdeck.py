@@ -146,7 +146,15 @@ def run_menu(args: argparse.Namespace) -> None:
                 print("Operation failed. Check output permissions and disk space; existing data was preserved.")
 
         elif choice.startswith("5"):
-            print("\n[Ranking against your ideas] — coming in Phase 5 of the build.\n")
+            from ui import ideas
+            from ui.records import terminal_text
+            if args.dry_run:
+                print("Dry run: research ideas and database left untouched.")
+                continue
+            try:
+                ideas.run(get_store(), config.ranking)
+            except StorageError as exc:
+                print("Ranking unavailable: " + terminal_text(str(exc), 300))
 
         elif choice.startswith("6"):
             run_security_check()

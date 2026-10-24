@@ -90,3 +90,30 @@ not proof that all parser behavior is safe. Audit again after dependency changes
 The runtime dependency list is pinned for direct requirements but is not a
 complete transitive lockfile. Resource exhaustion and undiscovered parser flaws
 remain possible; process adversarial documents with OS isolation.
+
+## Phase C: research ideas and offline ranking
+
+Schema version 2 adds an ideas table. Migration is allowed only from a recognized
+version 1 schema with the expected application ID, table layout and no executable
+schema objects. It creates one table and updates the schema version in a single
+transaction. Existing records and import manifests are not rewritten or deleted;
+a migration failure rolls back both DDL and version. Back up a stopped database
+before upgrading; the old Phase B code refuses version 2. Ideas are validated and
+saved with parameterized SQL. Removing an idea archives its content. Explicit
+idea edits replace the chosen idea's fields; there is no edit-history workflow.
+
+TF-IDF and weighted matching run entirely in process. There are no remote AI
+providers, embedding downloads, browser sessions or automatic network calls.
+Comparison input sizes, idea counts and sparse vocabulary sizes are bounded by
+configuration; these limits are not hard process CPU/RAM isolation. Numerical
+libraries load lazily. Results, saved ideas and optional JSON comparisons contain
+plaintext research data and source paths under output; comparison previews strip
+terminal controls and do not send document contents to logs.
+
+Scores and detected identities are unverified heuristics. Duplicate grouping
+preserves source record IDs but may combine namesakes when only names/source or
+names/affiliation are available. Import history is additive, so contradictory old
+versions can contribute to a comparison. Compare against appropriate source
+filters and check the original records before drawing conclusions. Lexical
+matching does not infer qualifications or consent, translate text, or prove
+supervisor availability. No ground-truth evaluation data has been supplied.

@@ -13,12 +13,13 @@ from pathlib import Path
 from typing import Any, Iterator
 
 from core.models import ExtractedRecord, ImportResult
+from rank.models import ResearchIdea
 from security.filesystem import (
     check_owned_file, open_output_directory, output_directory, verify_directory,
 )
 from security.validators import UnsafePathError, safe_output_path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 APPLICATION_ID = 0x5350444B  # SPDK
 DATABASE_NAME = "spiderdeck.sqlite3"
 
@@ -104,6 +105,8 @@ class RecordStore:
                         connection.create_function("unicode_fold", 1, _fold, deterministic=True)
                         if created:
                             self._create_schema(connection)
+                        elif initialize:
+                            self._migrate_schema(connection)
                         self._check_schema(connection)
                         yield connection
                     finally:
@@ -139,18 +142,99 @@ class RecordStore:
                 imported_at TEXT NOT NULL, record_count INTEGER NOT NULL,
                 PRIMARY KEY (source, manifest_hash)
             )""")
+            RecordStore._create_ideas_table(connection)
             connection.execute(f"PRAGMA application_id={APPLICATION_ID}")
             connection.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
 
     @staticmethod
-    def _check_schema(connection: sqlite3.Connection) -> None:
+    def _create_ideas_table(connection: sqlite3.Connection) -> None:
+        connection.execute("""CREATE TABLE ideas (
+            idea_id TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL,
+            description TEXT NOT NULL, keywords_json TEXT NOT NULL,
+            domain TEXT, keyword_weights_json TEXT NOT NULL,
+            archived INTEGER NOT NULL DEFAULT 0 CHECK (archived IN (0, 1)),
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+        )""")
+
+    @staticmethod
+    def _migrate_schema(connection: sqlite3.Connection) -> None:
+        if connection.execute("PRAGMA user_version").fetchone()[0] != 1:
+            return
+        # Only a recognized Phase B schema may receive this additive migration.
+        RecordStore._check_schema(connection, expected_version=1)
+        with connection:
+            connection.execute("BEGIN IMMEDIATE")
+            # Another process may have migrated while we waited for the lock.
+            if connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION:
+                return
+            RecordStore._check_schema(connection, expected_version=1)
+            RecordStore._create_ideas_table(connection)
+            connection.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+
+    @staticmethod
+    def _check_schema(connection: sqlite3.Connection, *, expected_version: int = SCHEMA_VERSION) -> None:
         version = connection.execute("PRAGMA user_version").fetchone()[0]
         app = connection.execute("PRAGMA application_id").fetchone()[0]
-        if app != APPLICATION_ID or version != SCHEMA_VERSION:
+        if app != APPLICATION_ID or version != expected_version:
             raise StorageError("Unrecognized database or unsupported schema version. No migration was applied.")
         # Imported databases are not supported. Refuse executable schema objects.
         if connection.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger', 'view')").fetchone():
             raise StorageError("Unexpected database schema objects; use an untampered SpiderDeck database.")
+        required = {
+            "records": {"record_id", "source", "source_type", "title", "text", "fields_json",
+                        "extracted_at", "metadata_json", "content_hash"},
+            "imports": {"source", "manifest_hash", "imported_at", "record_count"},
+        }
+        if expected_version >= 2:
+            required["ideas"] = {"idea_id", "title", "description", "keywords_json", "domain",
+                                 "keyword_weights_json", "archived", "created_at", "updated_at"}
+        for table, columns in required.items():
+            actual = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+            if actual != columns:
+                raise StorageError("Unexpected database table layout. No migration was applied.")
+
+    def add_idea(self, idea: ResearchIdea) -> None:
+        idea = ResearchIdea(**idea.to_dict())
+        timestamp = datetime.now(timezone.utc).isoformat()
+        with self._connection() as connection, connection:
+            connection.execute("BEGIN IMMEDIATE")
+            if connection.execute("SELECT 1 FROM ideas WHERE idea_id=?", (idea.idea_id,)).fetchone():
+                raise StorageError("Idea identifier already exists; use edit for an existing idea.")
+            if connection.execute("SELECT count(*) FROM ideas WHERE archived=0").fetchone()[0] >= 1000:
+                raise StorageError("At most 1000 active ideas are supported; remove an unused idea first.")
+            connection.execute("INSERT INTO ideas VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)", (
+                idea.idea_id, idea.title, idea.description, canonical_json(idea.keywords), idea.domain,
+                canonical_json(idea.keyword_weights), timestamp, timestamp))
+
+    def update_idea(self, idea: ResearchIdea) -> None:
+        idea = ResearchIdea(**idea.to_dict())
+        with self._connection() as connection, connection:
+            cursor = connection.execute("""UPDATE ideas SET title=?, description=?, keywords_json=?,
+                domain=?, keyword_weights_json=?, updated_at=? WHERE idea_id=? AND archived=0""", (
+                idea.title, idea.description, canonical_json(idea.keywords), idea.domain,
+                canonical_json(idea.keyword_weights), datetime.now(timezone.utc).isoformat(), idea.idea_id))
+            if cursor.rowcount != 1:
+                raise StorageError("Active idea not found; reload the idea list.")
+
+    def archive_idea(self, idea_id: str) -> None:
+        """Remove from active use without physically deleting its saved contents."""
+        with self._connection() as connection, connection:
+            cursor = connection.execute("UPDATE ideas SET archived=1, updated_at=? WHERE idea_id=? AND archived=0",
+                                        (datetime.now(timezone.utc).isoformat(), idea_id))
+            if cursor.rowcount != 1:
+                raise StorageError("Active idea not found; reload the idea list.")
+
+    def list_ideas(self) -> list[ResearchIdea]:
+        with self._connection() as connection:
+            rows = connection.execute("SELECT * FROM ideas WHERE archived=0 ORDER BY title, idea_id")
+            try:
+                return [ResearchIdea(
+                    title=row["title"], description=row["description"],
+                    keywords=json.loads(row["keywords_json"]), domain=row["domain"],
+                    keyword_weights=json.loads(row["keyword_weights_json"]), idea_id=row["idea_id"],
+                ) for row in rows]
+            except (ValueError, TypeError) as exc:
+                raise StorageError("A stored idea is malformed; restore a trusted database backup.") from exc
 
     def save_import(self, result: ImportResult) -> SaveSummary:
         digest = hashlib.sha256()

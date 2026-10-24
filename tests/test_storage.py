@@ -110,7 +110,7 @@ def test_search_casefold_and_normalization(store, document):
     assert store.count(SearchFilters(keyword='cafe\u0301')) == 1
 
 
-@pytest.mark.parametrize('version', [0, 2, 999])
+@pytest.mark.parametrize('version', [0, SCHEMA_VERSION + 1, 999])
 def test_unsupported_versions_never_migrated(store, version):
     with sqlite3.connect(store.path) as connection:
         connection.execute(f'PRAGMA user_version={version}')
@@ -357,7 +357,7 @@ def test_menu_dry_run_never_creates_database(tmp_path, monkeypatch):
     monkeypatch.setattr(spiderdeck, 'run_security_check', lambda: True)
     monkeypatch.setattr(effects, 'matrix_intro', lambda **_: None)
     monkeypatch.setattr(effects, 'glitch_title', lambda *_, **__: None)
-    choices = iter(['2) Import', '3) Browse', '4) Search', '9) Export', '8) Quit'])
+    choices = iter(['2) Import', '3) Browse', '4) Search', '5) Ranking', '9) Export', '8) Quit'])
     monkeypatch.setattr(menu, 'main_menu', lambda: next(choices))
     monkeypatch.setattr(menu, 'prompt_path', lambda _: 'not-read.txt')
     spiderdeck.run_menu(argparse.Namespace(no_fx=True, dry_run=True))

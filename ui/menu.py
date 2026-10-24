@@ -10,7 +10,7 @@ MAIN_MENU_CHOICES = [
     "2) Import a local document",
     "3) Browse collected records",
     "4) Search intelligence database",
-    "5) Rank results against my ideas",
+    "5) Research ideas and supervisor ranking",
     "6) Run security self-check",
     "7) Settings",
     "9) Export results",
@@ -36,6 +36,14 @@ def prompt_url(message: str) -> str:
 
 def prompt_text(message: str) -> str:
     return questionary.text(message).ask() or ""
+
+
+def prompt_choice(message: str, choices: list[str]) -> str | None:
+    return questionary.select(message, choices=choices).ask()
+
+
+def prompt_multiple(message: str, choices: list[str]) -> list[str]:
+    return questionary.checkbox(message, choices=choices).ask() or []
 
 
 def prompt_domains(message: str) -> list[str]:

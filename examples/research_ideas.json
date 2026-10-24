@@ -1,0 +1,26 @@
+[
+  {
+    "title": "Client-side phishing detection with WebAssembly",
+    "description": "Detect phishing pages locally in a browser using WebAssembly, with attention to privacy, latency and adversarial web content.",
+    "keywords": ["phishing", "WebAssembly", "browser security", "client-side detection"],
+    "domain": "Cybersecurity"
+  },
+  {
+    "title": "Wi-Fi CSI fall detection under interference",
+    "description": "Use Wi-Fi channel state information for fall detection and evaluate robustness under radio interference and changing environments.",
+    "keywords": ["Wi-Fi", "CSI", "fall detection", "interference", "signal processing"],
+    "domain": "Wireless sensing"
+  },
+  {
+    "title": "Fish freshness detection using computer vision and sensors",
+    "description": "Estimate fish freshness with computer vision and complementary sensor measurements, studying practical food quality monitoring.",
+    "keywords": ["fish freshness", "computer vision", "sensors", "food quality"],
+    "domain": "Computer vision"
+  },
+  {
+    "title": "Digital evidence tracing for non-consensual image distribution",
+    "description": "Trace provenance and evidence chains for non-consensual image distribution through privacy-preserving analysis and lawful evidence handling.",
+    "keywords": ["digital evidence", "image provenance", "digital forensics", "evidence tracing"],
+    "domain": "Digital forensics"
+  }
+]

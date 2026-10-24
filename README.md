@@ -3,7 +3,8 @@
 Local-first research document intelligence for Python 3.13 (tested on macOS).
 SpiderDeck imports authorized local documents without network requests or remote AI.
 Imports persist in SQLite and support browsing, search and CSV/JSON exports.
-Website collection and ranking are not implemented yet.
+Research ideas and explainable offline supervisor ranking are available.
+Website collection is not implemented yet.
 
 ## Installation
 
@@ -83,6 +84,7 @@ Menu workflows retain arrow-key navigation:
 - **2) Import** commits the complete document in one transaction.
 - **3) Browse** previews 20 records at a time.
 - **4) Search** combines keyword, source-path substring and exact document-type filters.
+- **5) Research ideas and supervisor ranking** manages saved ideas and compares them locally.
 - **9) Export** applies the same filters and asks for a new `.csv` or `.json` filename.
 - **8) Quit** closes the application; saved records remain available next time.
 
@@ -98,9 +100,12 @@ original extraction timestamps. A manifest of source and record IDs detects a
 previously imported record set. Changed records are added; old versions are
 retained. Equal content at another source/location is flagged, not discarded.
 There is no automatic deletion, replacement, version comparison or byte-level
-unchanged-file shortcut: reimports still parse the input. Schema version 1 and
-an application ID identify SpiderDeck databases. Unrelated databases, unsupported
-versions and existing unrelated files are refused without automatic migrations.
+unchanged-file shortcut: reimports still parse the input. Schema version 2 and
+an application ID identify SpiderDeck databases. Recognized version 1 databases
+receive a transactional, additive migration that creates the ideas table;
+existing records and import manifests are preserved. Unrelated databases, unknown
+versions and existing unrelated files are refused without modification.
+An older Phase B application cannot open the upgraded database; use the current code.
 
 Exports stream one record at a time, with no database-sized Python list. JSON
 preserves the record schema, nested fields and Unicode. CSV uses a fixed column
@@ -127,7 +132,107 @@ export_records(store.iter_records(filters), store.root, "vision.json", "json")
 API callers choose their output directory explicitly; relative API paths use the
 caller's current directory. For a stopped application, back up the database by
 copying it to a safe location. Do not copy an actively written SQLite file as a
-backup. Database import/restore, encryption and deletion workflows are not provided.
+backup. Database import/restore, encryption and record deletion workflows are not provided.
+
+## Research ideas and supervisor ranking
+
+Choose **5)**, then **Create idea**, **List ideas**, **Edit idea**, **Remove idea**,
+or **Compare ideas**. Ideas store a title, description, keywords, optional domain,
+and optional per-keyword weights in SQLite. A title is required; missing
+information remains visible in the comparison. Edit prompts keep a field when
+left blank; enter `-` to clear it. Keyword weights are JSON, e.g. `{"vision": 2}`,
+and must refer to listed keywords. Removal archives an idea instead of deleting
+its stored contents. There is a limit of 1,000 active saved ideas.
+
+Compare uses checkboxes (Space to select, Enter to confirm) for one or several
+ideas, then the existing keyword/source/type filters to choose imported records.
+The terminal shows the top results per idea: name when available, score, shared
+terms, every source document, score components, reasoning and uncertainty.
+Optional comparison JSON exports preserve selected ideas, filters, weights,
+rankings and source record identifiers. Export publication uses the same safe,
+private, no-overwrite output mechanism as document exports.
+
+The four initial FYP topics are provided as editable **example data** in
+[examples/research_ideas.json](examples/research_ideas.json). They are never
+hardcoded into the ranker or automatically inserted. To save them explicitly,
+run this from the repository with the virtual environment active (adapt the
+output path if configured differently):
+
+```python
+import json
+from pathlib import Path
+from core.storage import RecordStore
+from rank.models import ResearchIdea
+
+store = RecordStore("output")
+existing = {idea.title for idea in store.list_ideas()}
+for entry in json.loads(Path("examples/research_ideas.json").read_text(encoding="utf-8")):
+    if entry["title"] not in existing:
+        store.add_idea(ResearchIdea(**entry))
+        existing.add(entry["title"])
+```
+
+### Methodology and interpretation
+
+The default is scikit-learn TF-IDF with unigram/bigram features and cosine
+similarity ([TF-IDF documentation](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html),
+[cosine documentation](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html)).
+The vocabulary/IDF is fit on the selected candidate documents; each
+idea's title and description are transformed against that fixed vocabulary.
+Unicode tokens preserve combining marks for Sinhala and Tamil. There is no
+translation, stemming, semantic model, network call or model download.
+Changing the corpus can change the scores, so scores from different comparisons
+are not directly calibrated against each other.
+
+Recognized expertise fields are preferred over full row text. Default name
+aliases include `Name`, `Supervisor` and `Supervisor Name`; expertise aliases
+include `Expertise`, `Research Interests` and `Research Areas`. These alias lists,
+plus email, affiliation and domain aliases, can be configured in `[ranking]`.
+Local-language column headers can be added explicitly. No name or expertise is
+invented from free text: missing fields are reported, and unstructured documents
+remain document-level candidates. Headers, footers and whole-document context
+are not reconstructed across imported paragraphs/pages.
+
+Exact copies are grouped before fitting TF-IDF. Named rows are also grouped by
+email when available, otherwise name plus affiliation, otherwise name plus
+source. Copied content connects groups while retaining every source and record
+ID. Each distinct text chunk contributes once. This prevents copied rows from
+boosting a supervisor's rank. Name-based grouping is unverified and can combine
+same-named people; inspect source records, especially contradictory versions.
+Historical imported records remain eligible unless excluded with filters.
+
+Optional scoring blends three components using a normalized weighted mean:
+
+```text
+score = (text_weight * cosine_similarity
+       + keyword_weight * weighted_keyword_coverage
+       + domain_weight * structured_domain_match) / sum(component_weights)
+```
+
+Keyword coverage uses token-boundary phrases in expertise/fallback text and the
+idea's keyword weights (default 1, zero disables a keyword). Domain matching is
+binary phrase matching against recognized structured domain fields only. These
+are lexical heuristics. Text, keyword and domain features can be correlated; they are
+blended rather than independently added as confidence evidence. Default weights
+are text=1, keyword=0, domain=0. Keywords/domain influence scores only when their
+component weights are positive; per-keyword weights alone do not enable that
+component. Missing inputs score zero without silently renormalizing the weights.
+All-zero or nonfinite component weights are refused.
+
+**Scores are heuristic relevance estimates, not verified supervisor suitability.**
+They do not establish availability, willingness or qualifications. Empty idea
+descriptions use title-only text matching with a warning; out-of-vocabulary
+queries and empty candidate text produce explicit zero similarity. Ties sort
+by name, source and record IDs; scores round to six decimals.
+
+Default comparison bounds: 5,000 input records, 2 million text-plus-serialized-field
+characters, 20,000 characters per record, 30,000 vocabulary features, 20 selected
+ideas, and top 10 results per idea. Limits fail with a filtering/splitting message;
+inputs are never silently truncated. Sparse matrices avoid all-pairs document
+comparisons, and heavy numerical libraries load only when comparison begins.
+No embeddings installation is required. Optional semantic embeddings are deferred.
+The tests use synthetic fixtures; there are no labeled real supervisor judgments,
+so no Precision@K, Recall@K or NDCG accuracy claims are made.
 
 ## Configuration and limits
 
@@ -176,9 +281,9 @@ values may be absent or stale. DOCX headers, footers, text boxes and nested tabl
 are not imported. HTML is not rendered and Markdown is retained as source text.
 Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
 
-Next: configurable research ideas and explainable offline TF-IDF supervisor
-ranking. Ranking is not currently available, and no suitability or evaluation
-claims are made.
+Next: authorized static web collection with transport-level destination policy,
+explicit target approval, robots/rate limits and offline network tests. No network
+collection is enabled by the current menu.
 
 The PDF stack is pinned to `pdfplumber==0.11.10` and
 `pdfminer.six==20260107`, addressing the two Phase A audit findings. Importing
@@ -199,3 +304,22 @@ A generated 5,000-row CSV measured 0.040 s import, 0.638 s transactional save,
 at 0.79 MiB incremental Python allocations under `tracemalloc`, excluding the
 already imported records and native SQLite/parser allocations. This is a small
 synthetic development baseline, not an upper bound or large-database benchmark.
+
+
+## Phase C verification snapshot
+
+The complete suite passes **142 tests**, including all Phase A/B behavior,
+version 1 → 2 migration preservation and rollback, idea lifecycle and validation,
+toy expected ordering, missing information, zero similarity, duplicate grouping,
+Sinhala/Tamil text, reproducibility, configurable weights, bounded workloads,
+menu integration, offline end-to-end comparison and no-overwrite JSON export.
+The 11-case security self-check, dependency imports and `pip check` pass; the
+installed-environment dependency audit reports no known vulnerabilities. No new
+runtime dependency was added. Optional semantic embeddings remain unimplemented.
+
+A synthetic comparison of 1,000 candidates against four ideas took 0.232 s warm.
+A separate cold measurement under `tracemalloc` took 4.423 s and peaked at 71.9 MiB
+of Python allocations including lazy numerical-library imports. Imported input
+records were allocated before tracing; native allocations and total process RSS
+are excluded. This is a development baseline, not a hard resource bound or an
+accuracy evaluation.

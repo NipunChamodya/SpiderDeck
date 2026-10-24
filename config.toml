@@ -25,3 +25,12 @@ enabled = true
 
 [ranking]
 offline_only = true
+text_weight = 1.0
+keyword_weight = 0.0
+domain_weight = 0.0
+max_records = 5000
+max_total_chars = 2000000
+max_chars_per_record = 20000
+max_features = 30000
+max_ideas = 20
+top_k = 10
