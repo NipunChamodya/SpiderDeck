@@ -146,6 +146,8 @@ class WireSocket:
         self.timeouts.append(timeout)
     def connect(self, endpoint):
         self.connected = endpoint
+    def do_handshake(self):
+        pass
     def getpeername(self):
         return self.address, 443
     def makefile(self, *args):
@@ -684,3 +686,65 @@ def test_invalid_length_header_stops_without_transient_retry(sockets):
     pending.append(wire(b'', b'Content-Length: ' + b'9' * 100 + b'\r\n'))
     with pytest.raises(CollectionError, match='invalid_content_length'):
         request()
+
+
+@pytest.mark.parametrize('path', ['/spreadsheets/d/example', '//spreadsheets/d/example',
+                                  '///document/d/example', '//presentation/d/example',
+                                  '//forms/d/example'])
+def test_interactive_document_repeated_slashes_require_export(path):
+    from crawler.collector import _restricted_url
+    with pytest.raises(CollectionError, match='interactive_document_requires_export'):
+        _restricted_url('https://docs.google.com' + path)
+
+
+def test_tls_socket_registered_before_handshake(monkeypatch):
+    connection = _PinnedConnection('research.test', 443, PUBLIC, timeout=2, tls=True)
+    raw = WireSocket(b'')
+    secured = WireSocket(b'')
+    monkeypatch.setattr(socket, 'socket', lambda *args: raw)
+    monkeypatch.setattr(ssl.SSLContext, 'load_default_certs', lambda *args: None)
+    def wrap(context, sock, **kwargs):
+        assert kwargs['do_handshake_on_connect'] is False
+        return secured
+    def handshake():
+        assert connection.active_socket is secured
+        assert 0 < secured.timeouts[-1] <= 2
+        connection.abort()
+        assert secured.closed
+        raise TimeoutError('private handshake diagnostic')
+    secured.do_handshake = handshake
+    monkeypatch.setattr(ssl.SSLContext, 'wrap_socket', wrap)
+    with pytest.raises(TimeoutError):
+        connection.connect()
+    assert secured.closed
+
+
+def test_handshake_timeout_has_fixed_error_code(sockets, monkeypatch):
+    pending, _ = sockets
+    pending.append(wire())
+    def timeout(self):
+        raise TimeoutError('private handshake diagnostic')
+    monkeypatch.setattr(WireSocket, 'do_handshake', timeout, raising=False)
+    with pytest.raises(CollectionError, match='^request_timeout$'):
+        request()
+
+
+def test_watchdog_interrupts_blocked_tls_handshake(sockets, monkeypatch):
+    import threading
+    pending, made = sockets
+    pending.append(wire())
+    interrupted = threading.Event()
+    monkeypatch.setattr(ssl.SSLContext, 'load_default_certs', lambda *args: None)
+    def shutdown(self, how):
+        self.closed = True
+        interrupted.set()
+    def handshake(self):
+        assert interrupted.wait(2), 'watchdog failed to interrupt the active TLS socket'
+        raise OSError('private aborted handshake diagnostic')
+    monkeypatch.setattr(WireSocket, 'shutdown', shutdown)
+    monkeypatch.setattr(WireSocket, 'do_handshake', handshake)
+    with pytest.raises(CollectionError, match='^request_timeout$'):
+        PinnedTransport().request(ORIGIN + '/', NetworkPolicy(approval(), ['research.test']),
+            user_agent='SpiderDeckBot/0.1', timeout=0.05, max_bytes=1000)
+    assert interrupted.is_set()
+    assert made[0].closed

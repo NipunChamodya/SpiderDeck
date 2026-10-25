@@ -45,7 +45,7 @@ class CrawlReport:
 
 def _restricted_url(url: str) -> None:
     parsed = urlsplit(url)
-    if parsed.hostname == "docs.google.com" and parsed.path.split("/")[1] in {
+    if parsed.hostname == "docs.google.com" and parsed.path.lstrip("/").split("/", 1)[0] in {
             "spreadsheets", "document", "presentation", "forms"}:
         raise CollectionError("interactive_document_requires_export")
 

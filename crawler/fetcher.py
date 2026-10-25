@@ -83,8 +83,17 @@ class _PinnedConnection(http.client.HTTPConnection):
                 context.minimum_version = ssl.TLSVersion.TLSv1_2
                 context.verify_flags |= ssl.VERIFY_X509_STRICT | ssl.VERIFY_X509_PARTIAL_CHAIN
                 context.set_alpn_protocols(["http/1.1"])
-                sock = context.wrap_socket(sock, server_hostname=self.host)
+                # Register the wrapped descriptor before any blocking handshake:
+                # wrap_socket detaches the raw descriptor, so the watchdog must
+                # close the TLS socket rather than the now-empty raw socket.
+                sock = context.wrap_socket(sock, server_hostname=self.host,
+                                           do_handshake_on_connect=False)
                 self.active_socket = sock
+                remaining = self.deadline - time.monotonic()
+                if remaining <= 0:
+                    raise CollectionError("request_timeout")
+                sock.settimeout(remaining)
+                sock.do_handshake()
             self.sock = sock
         except BaseException:
             sock.close()
@@ -162,6 +171,8 @@ class PinnedTransport:
             return Response(normalized, response.status, headers, body)
         except CollectionError:
             raise
+        except TimeoutError as exc:
+            raise CollectionError("request_timeout") from exc
         except ssl.SSLError as exc:
             raise CollectionError("request_timeout" if expired.is_set() else "tls_verification_failed") from exc
         except (OSError, http.client.HTTPException, ValueError) as exc:

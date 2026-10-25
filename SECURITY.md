@@ -230,3 +230,24 @@ successful and may leave synthetic artifacts. `--keep-workloads` explicitly
 retains fixtures. Reports do not establish real-world relevance accuracy or a
 security guarantee. No data migration or security/network policy relaxation was
 needed for the measured improvements.
+
+## Phase G: initial adversarial regressions
+
+The first Phase G increment fixes two issues found by code review and reproduced
+with offline tests. The TLS watchdog now owns the wrapped socket before an
+explicit handshake begins. Previously, implicit handshaking could detach the raw
+socket while the watchdog still referenced it. The handshake uses the remaining
+request deadline; socket timeouts produce the fixed `request_timeout` error code
+without exposing exception details. Certificate verification and hostname checks
+remain enabled. Repeated leading slashes in Google document viewer paths now
+trigger the same request-export stop as conventional viewer paths.
+
+Regression coverage includes wrapped-socket registration, watchdog interruption
+of a blocked simulated handshake, sanitized timeout errors, and repeated-slash
+viewer paths. These are offline unit/component tests using controlled socket
+fixtures, not live TLS integration tests or an external penetration test. They do
+not establish operating-system routing isolation or bounded DNS resolver runtime.
+Phase G remains in progress: real certificate-chain integration, parser diagnostic
+privacy review, and broader malicious-document coverage remain follow-up work.
+Dependency audit results cover known advisories in installed Python packages;
+they do not audit the interpreter, system OpenSSL, SQLite or unknown vulnerabilities.

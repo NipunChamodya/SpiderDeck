@@ -560,3 +560,12 @@ the installed-package dependency audit reports no known vulnerabilities. A
 20,000-row synthetic pipeline run also completed. Hard parser CPU/RAM isolation,
 real-world relevance evaluation and live-network performance remain outside these
 measurements.
+
+## Security testing progress
+
+Phase G has begun with offline regression tests for TLS-handshake cancellation
+and repeated-slash document-viewer restriction detection. The handshake watchdog
+now closes the active TLS socket and uses the remaining request timeout. Viewer
+variants stop with the existing authorized-export guidance. No new dependency,
+network capability or database migration was introduced. Broader Phase G testing
+is still in progress; see `SECURITY.md` for coverage boundaries and remaining work.
