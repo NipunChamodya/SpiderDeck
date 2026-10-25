@@ -19,7 +19,80 @@ python spiderdeck.py --no-fx
 The existing installer installs the repository's full dependency list, including
 future-phase dependencies. Browser installation is optional and unnecessary for
 local imports. No new runtime dependency was added for local importing.
-`--setup` is not an available command. `--no-fx` disables cosmetic animations.
+`--setup` is not an available command. Startup is static by default.
+`--animate` explicitly enables startup effects after security checks on a capable
+terminal, if `[fx].enabled` permits them. `--no-fx` remains supported as an alias
+for `--no-animation`; it also selects static progress messages.
+
+## Terminal modes, progress and settings
+
+```zsh
+python spiderdeck.py                              # arrow keys on a capable terminal
+python spiderdeck.py --plain                      # numbered prompts; no cursor-based progress
+python spiderdeck.py --quiet --reduced-motion     # retain results, errors and approval prompts
+python spiderdeck.py --no-animation               # legacy --no-fx also works
+python spiderdeck.py --animate                    # optional startup effects, after checks
+python spiderdeck.py --config /path/to/local.toml # explicitly chosen configuration input
+python spiderdeck.py --show-settings              # defaults plus TOML values as JSON
+python spiderdeck.py --security-check --quiet     # concise actual PASS/FAIL result
+```
+
+The startup security check runs before banners or cosmetic effects. Passing is
+shown as a short notice; detailed checks remain available in menu **6)** or with
+`--security-check`. Failing cases remain visible in quiet mode, and web collection
+stays disabled after a failed startup check. `--quiet` hides optional notices and
+progress, not results, errors, ranking uncertainty, consent prompts or safety
+messages. It is not a JSON-only automation interface and never means “approve”.
+
+Arrow-key/questionary navigation is preserved on interactive terminals. Piped
+input/output, `TERM=dumb`, `NO_COLOR`, or `--plain` use numbered prompts. Main
+menu numbers retain their existing meanings: **8 quits, 9 exports**; `q` also
+quits in plain mode. Other menus use the numbers shown, and plain multi-selection
+accepts comma-separated numbers. Empty/EOF confirmation means **no**. Blank text
+is an intentional answer (e.g. keep a field during editing), while EOF/Ctrl+C
+cancels a text form before saving incomplete edits. EOF at the main menu exits.
+Ctrl+C during actual work returns exit code 130; previously committed data stays
+saved, and an interrupted SQLite transaction is rolled back. Collection handles
+its own cancellation and can retain earlier accepted pages as documented above.
+
+`--reduced-motion`, `--no-animation`, `SPIDERDECK_REDUCED_MOTION=1`, quiet/plain
+mode and noninteractive terminals suppress cosmetic motion. Reduced-motion mode
+keeps interactive arrow navigation where supported but uses static status text.
+`--animate` cannot be combined with `--no-animation`/`--no-fx`; other motion
+suppression settings override an animation opt-in. No new rendering thread or
+background worker was added.
+
+Import/extraction, saving, search and ranking show their current phase. Collection
+reports accepted-page counts while preserving its existing rate limits; exports
+show processed records and a count taken at export start. Unknown totals are not
+presented as percentages. [Rich progress](https://rich.readthedocs.io/en/stable/progress.html)
+is refreshed manually on work updates (refreshes throttled to at most 10/second), with
+`auto_refresh=False`; it adds no spinner thread or cosmetic sleep. Reduced-motion
+and redirected output print one static stage notice instead. Display I/O errors
+disable progress rendering rather than interrupting data processing. Another
+process changing the database can make an export's initial count differ from
+its final record count.
+
+Settings are **read-only**: edit the TOML file and restart to change persisted
+configuration. `--config` input paths are relative to the shell's current directory
+when not absolute. Relative output paths still resolve against the application
+directory. `--show-settings` prints configuration values and defaults (not runtime
+TTY/display preferences), escapes controls in JSON, and does not create/open a
+database. Invalid/missing configuration returns code 2 with a sanitized message
+without printing private TOML source snippets.
+
+Menu **6)** can show up to 20 newest collection audit summaries without opening
+SQLite. It only reads matching private regular files under output, refuses
+symlinks/hardlinks, limits each JSON read to 64 KiB and displays validated origin,
+outcome and aggregate counts. Raw events, document contents and URL paths are not
+shown. Missing output is not created; oversized, malformed or unsafe files are
+reported generically. This view is intentionally limited, not a full log editor.
+
+Exit codes: 0 for normal exit/success; 1 for a failed explicit security check; 2
+for invalid arguments/configuration; 130 for work interrupted by Ctrl+C; 141 for
+a broken output pipe. Cancelling an individual prompt returns to its workflow/menu.
+Tests cover both mocked interactive rendering and actual piped CLI sessions; a
+full manual VoiceOver/terminal-emulator accessibility review has not been performed.
 
 ## Importing
 
@@ -87,6 +160,8 @@ Menu workflows retain arrow-key navigation:
 - **3) Browse** previews 20 records at a time.
 - **4) Search** combines keyword, source-path substring and exact document-type filters.
 - **5) Research ideas and supervisor ranking** manages saved ideas and compares them locally.
+- **6) Security audit and collection logs** runs the self-check or inspects recent private audit summaries.
+- **7) Settings** shows configuration and paths without opening the database.
 - **9) Export** applies the same filters and asks for a new `.csv` or `.json` filename.
 - **8) Quit** closes the application; saved records remain available next time.
 
@@ -369,9 +444,9 @@ values may be absent or stale. DOCX headers, footers, text boxes and nested tabl
 are not imported. HTML is not rendered and Markdown is retained as source text.
 Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
 
-Next: CLI usability, progress/status and performance review. JavaScript rendering,
-authenticated sessions and broader API support remain deferred until equivalent
-transport-level network policy can be enforced.
+Next: broader performance baselines and reliability/security review. JavaScript
+rendering, authenticated sessions and broader API support remain deferred until
+equivalent transport-level network policy can be enforced.
 
 The PDF stack is pinned to `pdfplumber==0.11.10` and
 `pdfminer.six==20260107`, addressing the two Phase A audit findings. Importing
@@ -431,3 +506,23 @@ addressed SSLKEYLOGFILE writes, retry-after delays, HTML base links and empty
 script-only pages. This is not a live HTTPS interoperability test or an external
 penetration test. Authenticated/browser collection and unrestricted API URLs
 remain deliberately unavailable.
+
+
+## Phase E verification snapshot
+
+The full suite passes **313 tests**, preserving all 262 earlier cases and adding
+51 CLI/presentation/cancellation cases. The 11-case security self-check, installed
+imports, `pip check`, installer shell syntax and diff checks pass. The final
+installed-package dependency audit reports no known vulnerabilities. No new
+runtime dependency or database schema change was introduced.
+
+Coverage includes startup security-before-effects ordering, display overrides,
+quiet failures, actual piped import/search/export sessions, EOF at target approval,
+cancelled idea forms, read-only settings/audit inspection, unsafe audit files and
+progress renderer failures. A manual PTY smoke test verified arrow-key selection
+and clean Ctrl+C exit; a full terminal-emulator/VoiceOver review remains pending.
+
+Three fresh-process `--plain --quiet` runs including interpreter startup, security
+checks and immediate exit took 0.229, 0.134 and 0.138 seconds on the development
+environment. These are small startup samples with filesystem caches in effect,
+not idle CPU measurements or a comprehensive Phase F performance assessment.

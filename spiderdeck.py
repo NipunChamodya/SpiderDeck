@@ -6,6 +6,8 @@ Usage:
     python spiderdeck.py                 # interactive menu
     python spiderdeck.py --security-check # run security self-test only
     python spiderdeck.py --no-fx          # disable cosmetic effects
+    python spiderdeck.py --plain --quiet # numbered prompts, reduced output
+    python spiderdeck.py --show-settings # configuration JSON, without database access
     python spiderdeck.py --dry-run        # show what would happen, do nothing
 
 Use install.sh to create the virtual environment and install dependencies.
@@ -14,13 +16,23 @@ Use install.sh to create the virtual environment and install dependencies.
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.config import AppConfig
+    from ui.display import DisplayOptions
 
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / ".venv"
 REQUIREMENTS = ROOT / "requirements.txt"
+
+
+class ConfigurationError(ValueError):
+    pass
 
 
 def _in_venv() -> bool:
@@ -64,16 +76,39 @@ def _maybe_install_playwright_browsers() -> None:
 
 def run_security_check() -> bool:
     from security import selfcheck
-    return selfcheck.run()
+    return selfcheck.run(verbose=False, plain=True)
 
 
 def run_menu(args: argparse.Namespace) -> None:
     from core.config import load_config
+    from ui.display import use_options
+
+    selected = getattr(args, "config", None)
+    try:
+        config = load_config(Path(selected).expanduser()) if selected else load_config()
+    except (OSError, ValueError, TypeError) as exc:
+        raise ConfigurationError("Cannot load configuration. Check the TOML path, section types and values.") from exc
+    with use_options(_display_options(args)):
+        _run_menu(args, config)
+
+
+def _display_options(args: argparse.Namespace) -> DisplayOptions:
+    from ui.display import DisplayOptions
+    return DisplayOptions(
+        quiet=getattr(args, "quiet", False),
+        plain=getattr(args, "plain", False) or "NO_COLOR" in os.environ or os.environ.get("TERM") == "dumb",
+        reduced_motion=(getattr(args, "reduced_motion", False) or getattr(args, "no_fx", False)
+                        or os.environ.get("SPIDERDECK_REDUCED_MOTION", "").lower() in {"1", "true", "yes", "on"}),
+        animate=getattr(args, "animate", False),
+    )
+
+
+def _run_menu(args: argparse.Namespace, config: AppConfig) -> None:
     from fx import effects
     from ui import menu
+    from ui.display import banner, motion_enabled, notice, options
+    from ui.progress import operation
 
-    config = load_config()
-    fx_enabled = config.fx_enabled and not args.no_fx
     from core.storage import RecordStore, StorageError
     from security.validators import UnsafePathError
 
@@ -85,13 +120,18 @@ def run_menu(args: argparse.Namespace) -> None:
             store = RecordStore(ROOT / Path(config.output.dir).expanduser())
         return store
 
-    effects.matrix_intro(enabled=fx_enabled)
-    effects.glitch_title("S P I D E R D E C K", enabled=fx_enabled)
-
+    notice("Checking local security controls...")
     security_ok = run_security_check()
+    banner()
     if not security_ok:
         print("\nSecurity self-check failed — refusing to start crawler features.")
         print("You can still read local files, but fix security/validators.py first.")
+    else:
+        notice("Security self-check passed. Web collection still requires explicit target approval.")
+    if security_ok and config.fx_enabled and options().animate and motion_enabled():
+        effects.matrix_intro(enabled=True)
+        effects.glitch_title("S P I D E R D E C K", enabled=True)
+    notice("Use arrow keys and Enter, or listed numbers in plain mode. Ctrl+C cancels; 8 exits.")
 
     while True:
         choice = menu.main_menu()
@@ -106,20 +146,28 @@ def run_menu(args: argparse.Namespace) -> None:
             from ui import collection
             try:
                 collection.run(config.crawl, get_store)
+            except menu.PromptCancelled:
+                print("Collection prompt cancelled; no target approved.")
             except (StorageError, OSError, ValueError):
                 print("Collection/storage failed. Check configuration, output permissions and disk space; audit may be unavailable.")
 
         elif choice.startswith("2"):
             from handlers.local import DocumentImportError, import_document
-            requested = menu.prompt_path("Local document to import:")
+            try:
+                requested = menu.prompt_path("Local document to import:")
+            except menu.PromptCancelled:
+                print("Import cancelled.")
+                continue
             if not requested:
                 continue
             if args.dry_run:
                 print("Dry run: no document read.")
                 continue
             try:
-                result = import_document(requested, config.imports)
-                summary = get_store().save_import(result)
+                with operation("Extracting local document"):
+                    result = import_document(requested, config.imports)
+                with operation("Saving normalized records"):
+                    summary = get_store().save_import(result)
             except DocumentImportError as exc:
                 print(f"Import failed: {exc}")
                 continue
@@ -151,6 +199,8 @@ def run_menu(args: argparse.Namespace) -> None:
                     records.browse(get_store(), search=choice.startswith("4"))
             except FileExistsError:
                 print("Export already exists. Choose a new filename; existing data was preserved.")
+            except menu.PromptCancelled:
+                print("Export cancelled." if choice.startswith("9") else "Search cancelled.")
             except (StorageError, ValueError) as exc:
                 print(f"Operation failed: {records.terminal_text(str(exc), 300)}")
             except OSError:
@@ -168,32 +218,68 @@ def run_menu(args: argparse.Namespace) -> None:
                 print("Ranking unavailable: " + terminal_text(str(exc), 300))
 
         elif choice.startswith("6"):
-            run_security_check()
+            from ui import audit
+            audit.run(ROOT / Path(config.output.dir).expanduser())
 
         elif choice.startswith("7"):
-            print(f"\nCurrent config: {config}\n")
+            from core.config import CONFIG_PATH
+            from ui.settings import show
+            selected = getattr(args, "config", None)
+            show(config, Path(selected).expanduser() if selected else CONFIG_PATH, ROOT)
 
         elif choice.startswith("8"):
             print("Goodbye.")
             break
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="SpiderDeck")
-    parser.add_argument("--security-check", action="store_true")
-    parser.add_argument("--no-fx", action="store_true")
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument("--security-check", action="store_true", help="Run offline security self-checks and exit")
+    actions.add_argument("--show-settings", action="store_true", help="Print effective configuration as JSON and exit")
+    motion = parser.add_mutually_exclusive_group()
+    motion.add_argument("--no-fx", "--no-animation", dest="no_fx", action="store_true", help="Disable cosmetic motion")
+    motion.add_argument("--animate", action="store_true", help="Opt into startup effects on capable terminals")
+    parser.add_argument("--reduced-motion", action="store_true", help="Use static status messages")
+    parser.add_argument("--quiet", action="store_true", help="Hide startup notices and progress; retain results, errors and approvals")
+    parser.add_argument("--plain", action="store_true", help="Use numbered prompts and static output")
+    parser.add_argument("--config", metavar="PATH", help="Read an explicitly selected TOML configuration")
     parser.add_argument("--dry-run", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if not _in_venv():
         _bootstrap_environment()
 
-    if args.security_check:
-        ok = run_security_check()
-        sys.exit(0 if ok else 1)
-
-    run_menu(args)
+    from ui.display import interactive_terminal, use_options
+    try:
+        with use_options(_display_options(args)):
+            if args.security_check:
+                from security import selfcheck
+                ok = selfcheck.run(verbose=not args.quiet, plain=args.plain or not interactive_terminal())
+                if args.quiet:
+                    print("Security self-check: " + ("PASS" if ok else "FAIL"))
+                return 0 if ok else 1
+            if args.show_settings:
+                from core.config import load_config
+                from ui.settings import as_json
+                try:
+                    config = load_config(Path(args.config).expanduser()) if args.config else load_config()
+                except (OSError, ValueError, TypeError):
+                    print("Cannot load configuration. Check the TOML path, section types and values.", file=sys.stderr)
+                    return 2
+                print(as_json(config))
+                return 0
+            run_menu(args)
+    except ConfigurationError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
+    except KeyboardInterrupt:
+        print("\nCancelled. Previously committed records were preserved.")
+        return 130
+    except BrokenPipeError:
+        return 141
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -38,7 +38,7 @@ def _case(label: str, fn, *, expect_pass: bool) -> tuple[str, bool, str]:
     return label, passed, detail
 
 
-def run() -> bool:
+def run(*, verbose: bool = True, plain: bool = False) -> bool:
     base = Path(__file__).resolve().parent.parent / "output"
     cases = [
         # --- Path traversal: must be BLOCKED ---
@@ -115,14 +115,22 @@ def run() -> bool:
         mark = "[green]PASS[/green]" if passed else "[red]FAIL[/red]"
         table.add_row(label, mark, detail)
 
-    console.print(table)
-    if all_passed:
-        console.print("\n[green]All security checks passed.[/green]")
-    else:
-        console.print(
-            "\n[red]One or more security checks failed.[/red] "
-            "Do not use SpiderDeck for live crawling until this is fixed."
-        )
+    if verbose and plain:
+        for label, passed, detail in cases:
+            print(f"{'PASS' if passed else 'FAIL'} | {label} | {detail}")
+    elif verbose:
+        console.print(table)
+    elif not all_passed:
+        for label, passed, detail in cases:
+            if not passed:
+                print(f"FAIL: {label}: {detail}")
+    if all_passed and verbose:
+        if plain:
+            print("All security checks passed.")
+        else:
+            console.print("\n[green]All security checks passed.[/green]")
+    elif not all_passed:
+        print("One or more security checks failed. Do not use SpiderDeck for live crawling until this is fixed.")
     return all_passed
 
 

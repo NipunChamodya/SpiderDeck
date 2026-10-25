@@ -12,6 +12,7 @@ from crawler.collector import Collector, EXPORT_ADVICE
 from security.filesystem import new_output_text
 from security.network_policy import CollectionError, approve_target, hostname, normalize_url, origin
 from ui import menu
+from ui.progress import operation
 
 
 def run(config: CrawlConfig, get_store: Callable[[], RecordStore]) -> None:
@@ -34,7 +35,8 @@ def run(config: CrawlConfig, get_store: Callable[[], RecordStore]) -> None:
         audit_name = f"crawl-audit-{uuid4().hex}.json"
         # Verify output access and reserve an exclusive private audit file before network activity.
         with new_output_text(store.root, audit_name) as audit_file:
-            report = Collector(approval, config).run()
+            with operation("Collecting approved pages; respecting robots and rate limits", unit="pages") as progress:
+                report = Collector(approval, config, on_progress=progress.set_completed).run()
             saved = duplicates = 0
             try:
                 for document in report.documents:

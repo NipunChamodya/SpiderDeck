@@ -52,6 +52,10 @@ class CrawlConfig:
 class OutputConfig:
     dir: str = "output"
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.dir, str) or not self.dir.strip() or "\x00" in self.dir:
+            raise ValueError("Output directory must be a nonempty path string.")
+
 
 @dataclass
 class ImportConfig:
@@ -113,10 +117,17 @@ class AppConfig:
     imports: ImportConfig = field(default_factory=ImportConfig)
     ranking: RankingConfig = field(default_factory=RankingConfig)
 
+    def __post_init__(self) -> None:
+        if type(self.fx_enabled) is not bool or type(self.ranking_offline_only) is not bool:
+            raise ValueError("Effects and offline-only flags must be TOML booleans.")
+
 
 def load_config(path: Path = CONFIG_PATH) -> AppConfig:
     with open(path, "rb") as f:
         raw = tomllib.load(f)
+    for name in ("crawl", "output", "import", "ranking", "fx"):
+        if not isinstance(raw.get(name, {}), dict):
+            raise ValueError("Configuration sections must be TOML tables.")
 
     return AppConfig(
         crawl=CrawlConfig(**raw.get("crawl", {})),

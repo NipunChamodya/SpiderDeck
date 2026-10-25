@@ -170,3 +170,30 @@ versions can contribute to a comparison. Compare against appropriate source
 filters and check the original records before drawing conclusions. Lexical
 matching does not infer qualifications or consent, translate text, or prove
 supervisor availability. No ground-truth evaluation data has been supplied.
+
+
+## Phase E: presentation and cancellation
+
+Display settings (`--quiet`, plain/reduced-motion modes and optional animations)
+only control presentation. They do not skip security checks, relax target policy,
+change file permissions or grant approvals. Startup checks run before cosmetics;
+failing details are retained even in quiet mode. EOF/blank confirmation never
+grants target approval, and cancelled text forms are distinct from submitted
+blank values so incomplete idea edits are not inadvertently persisted.
+
+Progress is manually refreshed without a rendering thread, timer or cosmetic
+sleep. Only fixed stage labels and aggregate counts are used; document text,
+URL paths and credentials are not passed to collection progress. Expected terminal
+I/O/encoding errors disable progress rather than changing collection/storage
+behavior. Operational exceptions still propagate to the relevant error boundary.
+Existing network watchdog deadlines and rates remain unchanged.
+
+Settings inspection is read-only and does not initialize/migrate SQLite. JSON
+settings output escapes control/formatting characters; invalid config errors do
+not echo TOML source. Explicitly chosen configuration inputs may be outside output.
+Audit inspection uses an owned directory descriptor, no-follow private regular
+files and bounded reads; symlinks/hardlinks, invalid formats and oversized logs
+are ignored or rejected without printing their contents. Only validated summary
+fields are shown. Startup, settings inspection and missing-audit inspection do
+not create an output directory or database. No schema change or new runtime
+dependency was introduced by this phase.

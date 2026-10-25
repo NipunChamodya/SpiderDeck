@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
 from urllib.parse import urljoin, urlsplit
+from typing import Callable
 
 from core.config import CrawlConfig
 from core.models import ExtractedRecord, ImportResult
@@ -130,7 +131,8 @@ def extract(response: Response, *, max_records: int, max_links: int) -> tuple[Im
 
 class Collector:
     def __init__(self, approval: TargetApproval, config: CrawlConfig, *, transport=None,
-                 clock=time.monotonic, sleep=time.sleep):
+                 clock=time.monotonic, sleep=time.sleep,
+                 on_progress: Callable[[int], None] | None = None):
         # Revalidate config so mutable configuration cannot disable safety checks.
         self.config = CrawlConfig(**asdict(config))
         self.policy = NetworkPolicy(approval, self.config.allowed_domains)
@@ -144,6 +146,7 @@ class Collector:
         self.visited: set[str] = set()
         self.robots = RobotsRules("", self.config.user_agent)
         self.used = False
+        self.on_progress = on_progress
 
     def _wait(self, extra: float = 0) -> None:
         now = self.clock()
@@ -278,6 +281,8 @@ class Collector:
                     raise CollectionError("record_limit")
                 self.report.documents.append(document)
                 self.report.event("page_collected")
+                if self.on_progress is not None:
+                    self.on_progress(len(self.report.documents))
                 if depth >= self.config.max_depth:
                     continue
                 frontier_full = False

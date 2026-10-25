@@ -1,17 +1,11 @@
 """Small record workflows using the existing questionary menu navigation."""
 from __future__ import annotations
 
-import unicodedata
-
 from core.storage import RecordStore, SearchFilters
 from exporters.records import export_records
 from ui import menu
-
-
-def terminal_text(value: str, max_chars: int = 160) -> str:
-    # Imported text must not inject terminal escape/control sequences.
-    return "".join(char if not unicodedata.category(char).startswith("C")
-                   else " " for char in value[:max_chars])
+from ui.display import terminal_text
+from ui.progress import operation
 
 
 def prompt_filters() -> SearchFilters:
@@ -22,7 +16,8 @@ def prompt_filters() -> SearchFilters:
 
 def browse(store: RecordStore, *, search: bool = False) -> None:
     filters = prompt_filters() if search else SearchFilters()
-    total = store.count(filters)
+    with operation("Searching local records"):
+        total = store.count(filters)
     print(f"{total} matching records.")
     offset = 0
     while offset < total:
@@ -49,7 +44,8 @@ def export(store: RecordStore, *, dry_run: bool = False) -> None:
         return
     records = store.iter_records(filters)
     try:
-        count = export_records(records, store.root, filename, format)
+        with operation("Exporting records", total=store.count(filters)) as progress:
+            count = export_records(progress.track(records), store.root, filename, format)
     finally:
         records.close()
     print(f"Exported {count} records to {terminal_text(filename)}.")

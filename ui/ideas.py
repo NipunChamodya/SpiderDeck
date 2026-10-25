@@ -12,6 +12,7 @@ from rank.supervisor_ranker import rank_records
 from security.filesystem import new_output_text
 from ui import menu
 from ui.records import prompt_filters, terminal_text
+from ui.progress import operation
 
 ACTIONS = ["List ideas", "Create idea", "Edit idea", "Remove idea", "Compare ideas", "Back"]
 
@@ -56,7 +57,7 @@ def _compare(store: RecordStore, ideas: list[ResearchIdea], config: RankingConfi
     if not selected:
         return
     filters = prompt_filters()
-    with closing(store.iter_records(filters)) as records:
+    with operation("Comparing research ideas locally"), closing(store.iter_records(filters)) as records:
         results = rank_records(records, selected, config)
     print(SCORE_NOTICE)
     print("Scores run from 0 to 1 and depend on the selected corpus and configured weights.")
@@ -129,6 +130,8 @@ def run(store: RecordStore, config: RankingConfig) -> None:
                     print("Research idea removed from the active list.")
         except FileExistsError:
             print("Export already exists. Choose a new filename; existing data was preserved.")
+        except menu.PromptCancelled:
+            print("Cancelled. No idea or export was saved.")
         except (StorageError, ValueError) as exc:
             print("Idea operation failed: " + terminal_text(str(exc), 300))
         except OSError:

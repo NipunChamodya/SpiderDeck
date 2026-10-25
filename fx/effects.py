@@ -1,9 +1,9 @@
 """
 fx/effects.py
 -------------
-Purely cosmetic terminal effects. Never blocks or slows the actual
-crawl/file logic — call these from a separate thread, or just call
-them synchronously at start/end since they're short.
+Opt-in, finite cosmetic terminal effects. The CLI calls these only after
+security checks and only when motion is explicitly enabled on a capable terminal.
+Default startup and reduced-motion/quiet/plain modes do not run them.
 
 Degrades gracefully: if the terminal doesn't support color/unicode,
 rich will fall back to plain text automatically.
