@@ -1,376 +1,277 @@
-# SpiderDeck
+<p align="center">
+  <img src="assets/readme/spiderdeck-banner.svg" width="1200" alt="SpiderDeck: collect intelligently, investigate locally. A cybernetic spider connects authorized websites, documents, projects, SQLite, search and research evidence." />
+</p>
 
-Local-first research document intelligence for Python 3.13 (tested on macOS).
-SpiderDeck imports authorized local documents without network requests or remote AI.
-Imports persist in SQLite and support browsing, search and CSV/JSON exports.
-Research ideas and explainable offline supervisor ranking are available.
-Authorized static HTML and public JSON API collection is available after explicit
-per-run target approval. Browser rendering and authenticated sessions are not available.
+<a name="spiderdeck"></a>
+<h1 align="center">SPIDERDECK</h1>
+<p align="center"><strong>Collect intelligently. Investigate locally.</strong></p>
+<p align="center">A local-first Python research intelligence engine.<br />Collect from authorized websites and local documents. Keep the evidence, context and search on your machine.</p>
 
-## Research projects — start here
+<p align="center">
+  <img src="assets/readme/stack-badges.svg" width="680" alt="Python 3.13 tested · local SQLite storage · macOS Apple Silicon tested · MIT licensed" />
+</p>
 
-Launch `python spiderdeck.py`, choose **0) Research projects and focused collection**,
-then **Create project**. Existing shortcuts remain: **1** Quick Crawl, **2** local
-import, **5** supervisor ranking, **8** exit and **9** legacy CSV/JSON export.
+<p align="center">
+  <a href="#installation"><strong>Get started →</strong></a> ·
+  <a href="#see-it-in-action">Terminal preview</a> ·
+  <a href="#research-workflow">Research workflow</a> ·
+  <a href="SECURITY.md">Security model</a> ·
+  <a href="MANUAL_TESTING.md">macOS guide</a>
+</p>
 
-1. Enter a research title, optional description, reviewed comma-separated keywords
-   and excluded topics. Literal title-token suggestions are editable and are not
-   inferred scientific facts. Select **Balanced**, **Strict** or **Discovery** and
-   confirm creation. Projects stay entirely local.
-2. In the dashboard choose **Collect authorized websites**. Each starting URL has
-   its own exact-host approval, audited access check and separate start confirmation.
-   Add another seed interactively afterward; no new domain is authorized by relevance.
-   Each seed is a separate bounded run, not an unattended multi-domain crawl.
-3. Or choose **Import documents** and select a file in the native macOS picker.
-   Relevant records and bounded-scoring review candidates are linked to this project;
-   low-relevance records are skipped and reported. Quick import remains unfiltered.
-4. **Browse evidence** or **Search project** opens readable documents with source,
-   location, timestamps, score components/matches/missing terms, quality notices,
-   paginated cleaned text and optional original extracted text. No generated summary
-   or peer-review claim is invented. Set a source category only with a user evidence note.
-5. **Export findings** writes Markdown, structured JSON or predictable-column CSV.
-   Optional keyword/source/type/date filters select the export. A filename without
-   an extension prompts for format. Existing private exports need explicit replacement
-   consent and a private backup; unsafe files are never replaced.
-6. **Edit research settings** changes title, description, terms, exclusions, mode,
-   thresholds or search mode. Existing assessments remain labeled as earlier settings
-   until **Reassess stored evidence** is explicitly chosen. Reassessment preserves
-   all linked/raw evidence, including records that are now low relevance.
-7. Archive/unarchive projects or permanently delete a project with `DELETE` plus a
-   second confirmation. Deletion removes only project metadata/associations and
-   unreferenced assessment profiles. Shared records, source documents, history and
-   exports remain; this is not secure erasure.
+---
 
-### Topic scoring, modes and coverage
+## Research is scattered. Your evidence does not have to be.
 
-Matching is deterministic lexical processing over NFC Unicode with Sinhala/Tamil
-combining marks and script joiners preserved. No translation, embeddings, model
-or API download is required. Reviewed keywords (or literal title suggestions) are
-primary concepts; the description contributes to the cosine component. Phrase
-matching respects Unicode token boundaries.
+A useful paragraph lives on a university website. The supporting data is in a spreadsheet. Another lead is buried in a PDF. Collecting them is only the beginning: you still need to find, compare and trace what you saved.
 
-The score is `100 × (0.15 title coverage + 0.10 heading coverage + 0.45 body concept
-coverage + 0.20 body phrase coverage + 0.10 token-count cosine) − exclusion penalty`,
-clamped to 0–100. Each exclusion match subtracts 25 points, capped at 50.
-Single-token concepts supply phrase coverage when no multi-token concepts exist.
-The overlapping coverage/phrase weights total 0.65 deliberately; they are correlated
-signals, not independent evidence. Scores are normalized **heuristics, not
-probabilities, verified source quality or proof of supervisor suitability**.
+**SpiderDeck brings those sources into a local research workspace.** Start with a topic, choose permitted sources, inspect explainable relevance matches, and search or export the underlying evidence. Quick collection and unfiltered document import remain available when you do not need a project.
 
-- **Strict**, default threshold 60: relevant seeds and promising links only; use an
-  on-topic starting page rather than an unrelated homepage.
-- **Balanced**, threshold 35: prioritizes promising links and allows one consecutive
-  low-relevance navigation hop.
-- **Discovery**, threshold 20: allows two such hops and more adjacent exploration.
+This is a terminal application built for careful collection and investigation. It does not generate research conclusions, verify citations or bypass access restrictions.
 
-Thresholds are per project and configurable, with Strict ≥ Balanced ≥ Discovery.
-Link priority is 45% anchor relevance, 35% URL-path relevance, 10% neighboring
-paragraph/list context and 10% parent relevance. URL terms only influence traversal,
-never establish a page's relevance or authorize its hostname. A heap orders by
-priority, depth and canonical URL; per-run URL dedup/frontier/page/depth limits stay
-in effect. Relevance cannot change robots, TLS, DNS/IP or redirect rules.
+## Inside the deck
 
-At most 200,000 text characters per record are scored by default (configurable
-1,000–2,000,000). Larger records are explicitly marked **review**, not confidently
-classified; they remain linked for inspection. Coverage counts stored matched
-concepts: 0 Missing, 1 Limited, 2–4 Moderate, 5+ Strong. These labels count records,
-including exact copies, and do not establish independent evidence or comprehensive
-research coverage. Stale assessments are identified after edits.
+| Collection & evidence | Organization & investigation |
+| :--- | :--- |
+| **Authorized static collection** — HTML/XHTML and public JSON GET endpoints, with exact-host approval, bounded preflight and separate start confirmation. | **Research projects** — reviewed keywords, exclusions, editable settings, archiving and confirmed deletion. |
+| **Focused crawling** — Strict, Balanced and Discovery modes prioritize promising links within the approved scope. | **Explainable relevance** — local lexical scores show matches, missing concepts, exclusions and scoring components. |
+| **Local document import** — native macOS file selection, validation and extraction with source locations. | **SQLite persistence** — transactional writes, stable identifiers, exact-copy references and schema-aware migrations. |
+| **Structured evidence** — available headings, paragraphs, lists, tables and source-declared metadata, alongside original extracted text. | **Project search** — source/type/date filters, stable pagination and optional runtime-detected FTS5. |
+| **Security diagnostics** — offline self-check, sanitized collection audits and adversarial regression tests. | **Readable findings** — paginated evidence views; project Markdown, JSON and formula-protected CSV exports. |
+| **Incremental project collection** — safe ETag/Last-Modified validators and permitted 304 reuse, after fresh checks. | **Offline supervisor comparison** — separate TF-IDF research-idea ranking with bounded inputs and match explanations. |
 
-The authored synthetic judgments in `tests/fixtures/research_judgments.json`
-require explicit phishing detection plus WebAssembly implementation. Evaluation
-is reproducible through the research benchmark; it is not external real-world
-research ground truth. Precision/recall/NDCG results belong only to that fixture.
+**Import formats:** PDF · DOCX · XLSX · CSV · JSON · TXT · Markdown · HTML.
 
-### Structured evidence and incremental collection
+**Available:** the features above. **Optional:** FTS5 when SQLite supports it; native picker backends when available. **Evaluation-stage:** topic heuristics and coverage labels have synthetic evaluation only. **Not implemented:** semantic search, generated summaries, OCR, JavaScript rendering or authenticated browser collection.
 
-Original extracted text, fields and location metadata are retained. HTML main
-regions, headings, paragraphs, lists, tables, links and source-declared author,
-publisher/date are available when present. Multiple articles are not reduced to
-just the first. Normalization uses NFC, canonical line breaks, trailing/outer
-whitespace and excess blank-line normalization; internal mathematical whitespace
-is preserved. Exact duplicate paragraphs are counted, not deleted. Main-region
-selection is recorded as a transformation, not applied to the original text.
-Structural previews have independent count/500,000-character budgets; full
-extracted text remains available. Link discovery caps individual URLs at 4,096
-characters, 10,000 candidates and 2 million URL characters per page, or lower
-configured bounds. No raw HTML or original binary file is copied into SQLite.
+## See it in action
 
-PDF page references, DOCX paragraphs/headings, spreadsheet rows/headers and JSON
-pointers retain provenance. Replacement/unmapped PDF glyphs generate warnings;
-absence of a warning is not proof of text accuracy. No automatic OCR is used.
-Source-declared metadata is unverified; source category defaults to unknown.
+Actual output captured from the current CLI in plain mode, with `8` supplied to exit. This demonstration makes no website requests and does not open the database. The menu order is intentional: **8 exits; 9 exports**.
 
-Project collection saves safe ETag/Last-Modified validators referencing complete
-persisted pages. Recollection still gets robots and performs all destination,
-TLS, authorization and limit checks; only then may a legitimate 304 reuse evidence.
-Cached content is rescored for the current project. Cookies/authentication headers
-are never cached or sent. Cached nofollow rules and new response robots restrictions
-remain enforced. Pages with only partially retained JSON records and low-relevance
-pages are not conditionally cached. Quick Crawl keeps its previous uncached behavior.
+```text
+Checking local security controls...
+SPIDERDECK  |  LOCAL RESEARCH INTELLIGENCE
+Local documents, SQLite search, explainable ranking, authorized collection.
+Security self-check passed. Web collection still requires explicit target approval.
+Use arrow keys and Enter, or listed numbers in plain mode. Ctrl+C cancels; 8 exits.
+0) Research projects and focused collection
+1) Authorized static web collection
+2) Import a local document
+3) Browse collected records
+4) Search intelligence database
+5) Research ideas and supervisor ranking
+6) Security audit and collection logs
+7) Settings
+9) Export results
+8) Quit
+Choice (8 or q exits): Goodbye.
+```
 
-Summary definitions: pages visited are fetched page responses, relevant/low/review
-are scoring outcomes, unchanged counts 304 reuse (a subset of those outcomes),
-failed pages are terminal page failures, and new versions are new content at an
-existing source/type/location. Counts are not all mutually exclusive. Collection
-history records each seed or document import, with fixed statuses and count-only
-summaries; it contains no cookies, tokens or page bodies.
+Use arrow keys and Enter in a capable terminal, or `--plain` for numbered prompts. Startup is static by default; motion is optional and never runs before security checks.
 
-### Schema 3 and migration safety
+## How it works
 
-Existing schema-1/2 databases get a private `migration-vN-<uuid>.sqlite3` backup
-inside output before a transactional additive migration. Backup integrity and
-record/import counts are verified. Failure rolls back DDL/version; no database is
-silently recreated. Existing records, IDs, timestamps, manifests, supervisor ideas
-and historical duplicates are unchanged. Older code will refuse schema 3; use the
-new application or restore a trusted pre-upgrade copy while SpiderDeck is stopped.
+[![Research project and source selection feed validation, extraction, conservative normalization, optional topic scoring, transactional SQLite storage, then search, browse and export. Website and local-file validation are separate.](assets/readme/architecture.svg)](#database-and-data-pipeline)
 
-New tables: `projects`, `project_records`, `research_profiles`, `research_details`,
-`research_sources`, `collection_runs`, `http_cache`, `record_copies`, and
-`research_fts_map`; optional `research_fts` uses FTS5. Associations share records;
-assessment profiles are SHA-256-addressed and stored once. New exact payload copies
-reference a retained canonical record after full equality checks, while keeping
-their own source/title/location/time. Different content remains a new version.
-Legacy duplicates are not rewritten/compacted. Derived structures may still repeat
-per source. Near-duplicate detection is not implemented.
-
-Use `RecordStore.search/iter_records` and project APIs to read effective content.
-For new copies, raw SQL against `records.text/fields_json` sees placeholders; join
-`record_copies.canonical_id` back to `records` to resolve payloads. No executable
-view or trigger is added. Foreign keys, canonical-reference integrity, collision
-checks and schema validation remain enforced. WAL/automatic VACUUM are deliberately
-not enabled: the application is serial and no measured benefit justifies their
-extra sidecars/write costs. Copies and indexes are local; backup/export data is
-plaintext protected by ownership/0600 permissions, not database encryption.
-
-Project searches default to the existing Unicode literal-substring behavior.
-Filters include source/type and UTC last-association/check date, with stable
-relevance/date/source ordering and page size 20. Optional per-project FTS mode uses
-quoted token/phrase matching when runtime FTS5 exists, otherwise literal fallback;
-it is not identical to substring search, particularly for multilingual text.
-Contentless FTS uses a record mapping and does not keep another text copy. Exports
-stream a read snapshot; JSON retains original text plus structured views and
-assessment profiles, CSV neutralizes formulas, and Markdown fences untrusted
-content and strips terminal/bidi controls while preserving script joiners.
-
-See [MANUAL_TESTING.md](MANUAL_TESTING.md) for macOS acceptance/recovery steps and
-[PERFORMANCE.md](PERFORMANCE.md) for measured results and reproducible commands.
+The project defines relevance; the security policy defines permission. They are separate decisions. A promising link cannot approve a new hostname or override a robots restriction. Quick workflows omit project scoring.
 
 ## Installation
 
+**Target:** macOS Apple Silicon, Python 3.13, with modest local storage. The bootstrap accepts Python 3.11+, but the documented development and benchmark environment is Python 3.13.4 on macOS arm64. Windows support is not implemented.
+
+From Terminal, with Git and Python installed:
+
 ```zsh
+git clone https://github.com/NipunChamodya/SpiderDeck.git
+cd SpiderDeck
 bash install.sh
 source .venv/bin/activate
 python verify.py
-python spiderdeck.py --no-fx
+python spiderdeck.py
 ```
 
-The existing installer installs the repository's full dependency list, including
-future-phase dependencies. Browser installation is optional and unnecessary for
-local imports. No new runtime dependency was added for local importing.
-`--setup` is not an available command. Startup is static by default.
-`--animate` explicitly enables startup effects after security checks on a capable
-terminal, if `[fx].enabled` permits them. `--no-fx` remains supported as an alias
-for `--no-animation`; it also selects static progress messages.
+The installer uses `python3` to create `.venv`, installs the full pinned direct requirements and verifies imports. Check `python3 --version` first. At the optional Playwright browser-install prompt, answer **N**: browser binaries are unnecessary for the implemented static collector and local imports. Installation requires network access; subsequent local workflows do not.
 
-## Terminal modes, progress and settings
+<details>
+<summary><strong>Manual environment setup</strong></summary>
+
+Run these instead of `bash install.sh` if you prefer to manage the environment explicitly:
 
 ```zsh
-python spiderdeck.py                              # arrow keys on a capable terminal
-python spiderdeck.py --plain                      # numbered prompts; no cursor-based progress
-python spiderdeck.py --quiet --reduced-motion     # retain results, errors and approval prompts
-python spiderdeck.py --no-animation               # legacy --no-fx also works
-python spiderdeck.py --animate                    # optional startup effects, after checks
-python spiderdeck.py --config /path/to/local.toml # explicitly chosen configuration input
-python spiderdeck.py --show-settings              # defaults plus TOML values as JSON
-python spiderdeck.py --security-check --quiet     # concise actual PASS/FAIL result
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python verify.py
+python spiderdeck.py --plain --no-animation
 ```
 
-The startup security check runs before banners or cosmetic effects. Passing is
-shown as a short notice; detailed checks remain available in menu **6)** or with
-`--security-check`. Failing cases remain visible in quiet mode, and web collection
-stays disabled after a failed startup check. `--quiet` hides optional notices and
-progress, not results, errors, ranking uncertainty, consent prompts or safety
-messages. It is not a JSON-only automation interface and never means “approve”.
+There is no `pyproject.toml`, installable console entry point or `--setup` command. Launch from the checkout using `python spiderdeck.py`. Direct requirements are pinned; the repository is not a complete transitive dependency lockfile.
 
-Arrow-key/questionary navigation is preserved on interactive terminals. Piped
-input/output, `TERM=dumb`, `NO_COLOR`, or `--plain` use numbered prompts. Main
-menu numbers retain their existing meanings: **8 quits, 9 exports**; `q` also
-quits in plain mode. Other menus use the numbers shown, and plain multi-selection
-accepts comma-separated numbers. Empty/EOF confirmation means **no**. Blank text
-is an intentional answer (e.g. keep a field during editing), while EOF/Ctrl+C
-cancels a text form before saving incomplete edits. EOF at the main menu exits.
-Ctrl+C during actual work returns exit code 130; previously committed data stays
-saved, and an interrupted SQLite transaction is rolled back. Collection handles
-its own cancellation and can retain earlier accepted pages as documented above.
+</details>
 
-`--reduced-motion`, `--no-animation`, `SPIDERDECK_REDUCED_MOTION=1`, quiet/plain
-mode and noninteractive terminals suppress cosmetic motion. Reduced-motion mode
-keeps interactive arrow navigation where supported but uses static status text.
-`--animate` cannot be combined with `--no-animation`/`--no-fx`; other motion
-suppression settings override an animation opt-in. No new rendering thread or
-background worker was added.
+## Quick start
 
-Import/extraction, saving, search and ranking show their current phase. Collection
-reports accepted-page counts while preserving its existing rate limits; exports
-show processed records and a count taken at export start. Unknown totals are not
-presented as percentages. [Rich progress](https://rich.readthedocs.io/en/stable/progress.html)
-is refreshed manually on work updates (refreshes throttled to at most 10/second), with
-`auto_refresh=False`; it adds no spinner thread or cosmetic sleep. Reduced-motion
-and redirected output print one static stage notice instead. Display I/O errors
-disable progress rendering rather than interrupting data processing. Another
-process changing the database can make an export's initial count differ from
-its final record count.
+1. **Launch** `python spiderdeck.py`. Choose **0) Research projects and focused collection** → **Create project**.
+2. **Define the topic.** Enter a title and optional description. Review editable title-token suggestions, keywords and exclusions. Choose Balanced, Strict or Discovery, then confirm.
+3. **Choose a source.** In the project dashboard, collect authorized websites or import documents. On a local macOS Terminal, import opens a Finder-style picker; headless environments offer a typed-path fallback.
+4. **Review permissions.** Website collection requires exact-host approval, permission for bounded access checks, and separate collection confirmation. Approval can be run-only or explicitly saved.
+5. **Inspect evidence.** Browse the source-attributed records, original text, extraction notices and relevance explanations. Low-relevance records are skipped and reported; bounded-scoring review candidates are retained.
+6. **Search and export.** Filter the project by keyword, source, type or date. Export Markdown, JSON or CSV under the configured output directory.
 
-Settings retain a read-only summary and add confirmed interactive actions for
-exact hostname approvals and crawl limits. Changes are atomic, keep private
-backups beside the selected TOML file, and preserve unrelated settings/comments
-where safely editable. Stale dialogs and concurrent SpiderDeck writers are
-refused; reload saved crawl settings and review the change again. Unusual TOML
-layouts are refused rather than rewritten wholesale. No database opens for
-settings. `--config` selects the file edited by these actions; relative paths use
-the shell working directory. Relative output paths still use the application
-directory. `--show-settings` remains a read-only JSON command and creates no files.
+For an unfiltered workflow, choose **1** for quick static collection or **2** for local import. **3/4** browse/search all records; **5** manages research ideas and supervisor comparisons. **7** manages settings without requiring manual hostname edits.
 
-Invalid configuration still returns code 2 in headless sessions. Interactive
-Terminal sessions can explicitly enter safe session defaults with no approved
-hostnames, then use **Settings → Recover unreadable configuration**. Recovery
-requires another confirmation, preserves the original bytes in a private backup,
-and resets configuration to documented defaults. Restart afterward; no database
-is deleted or replaced. Missing/symlink/shared-writable configuration files cannot
-be overwritten through these controls. Other non-crawl settings still require a
-restart to take effect.
+[Beginner macOS walkthrough and isolated test setup →](MANUAL_TESTING.md)
 
-Menu **6)** can show up to 20 newest collection audit summaries without opening
-SQLite. It only reads matching private regular files under output, refuses
-symlinks/hardlinks, limits each JSON read to 64 KiB and displays validated origin,
-outcome and aggregate counts. Raw events, document contents and URL paths are not
-shown. Missing output is not created; oversized, malformed or unsafe files are
-reported generically. This view is intentionally limited, not a full log editor.
+## Research workflow
 
-Exit codes: 0 for normal exit/success; 1 for a failed explicit security check; 2
-for invalid arguments/configuration; 130 for work interrupted by Ctrl+C; 141 for
-a broken output pipe. Cancelling an individual prompt returns to its workflow/menu.
-Tests cover both mocked interactive rendering and actual piped CLI sessions; a
-full manual VoiceOver/terminal-emulator accessibility review has not been performed.
+**Example topic:** Client-Side Phishing Detection Using WebAssembly.
 
-## Importing
+Enter your own description and reviewed concepts such as `phishing detection`, `WebAssembly` and `browser security`. These are user inputs, not automatic scientific assertions. Start from an authorized on-topic source or import a document you have permission to process.
 
-Choose **2) Import a local document**. In a local macOS Terminal session, a
-native Finder-style file-selection dialog opens. Select a supported document and
-choose **Open**; cancelling the dialog returns without asking for a typed path.
-NSOpenPanel is used if PyObjC is already installed, then tkinter is tried if
-available, then macOS's built-in `choose file` dialog is invoked through a fixed
-`osascript` argument list. No GUI dependency is installed. This repository's
-Homebrew Python lacks `_tkinter`, so the built-in dialog fallback is relevant.
-SSH/headless sessions and unavailable dialogs offer the existing text-path prompt.
+| Mode | Default save threshold | Traversal behavior |
+| :--- | ---: | :--- |
+| **Strict** | 60 / 100 | Requires a relevant parent and a promising link. Best started on an on-topic page. |
+| **Balanced** | 35 / 100 | Prioritizes promising links; permits one consecutive low-relevance navigation hop. |
+| **Discovery** | 20 / 100 | Permits two such hops and more adjacent exploration, within the same limits. |
+
+A bounded priority queue orders links by anchor text, URL path, nearby context and parent relevance. Ordering is deterministic with depth/URL tie-breaking; URL keywords alone never establish document relevance. Each starting URL is a separate approved, bounded run.
+
+### Scores explain a match, not a conclusion
+
+Topic relevance uses title and heading matches, body concept and phrase coverage, and token-count cosine similarity. It runs locally without an AI API or model download. A score is a **normalized heuristic from 0–100, not a probability or evidence-quality rating**.
+
+The view shows matched and missing terms, excluded-topic matches, component values and source references. A source category starts as **unknown**; user classifications and source-declared publication metadata are not verification of peer review.
+
+Changing project settings leaves earlier assessments visibly stale until you choose **Reassess stored evidence**. Reassessment retains already-linked evidence, even when it becomes low relevance.
+
+<details>
+<summary><strong>Scoring formula, limits and evaluation</strong></summary>
 
 ```text
-Filename: supervisors.xlsx
-Document type: XLSX; file size: 12345 bytes.
-Imported 12 records; saved 12 new records; skipped 0 duplicate identifiers.
-Extracted characters: 2410.
-Text preview (up to 300 characters): ...
-Database: .../output/spiderdeck.sqlite3
+score = clamp(100 × (
+    0.15 × title coverage
+  + 0.10 × heading coverage
+  + 0.45 × body concept coverage
+  + 0.20 × body phrase coverage
+  + 0.10 × token-count cosine
+) − exclusion penalty, 0, 100)
 ```
 
-Counts/sizes in this example are illustrative. The size comes from the validated
-input snapshot. Preview text is short and strips terminal controls. The original
-file is never launched in another application. After import, choose **Browse
-imported records**, **Search imported content**, **Import another document**, or
-**Return to main menu**. Browse/search stay scoped to that exact source path and
-include earlier retained versions from that same file. Export remains in main
-menu **9)**. Filenames with spaces, Sinhala and Tamil are supported.
+Each excluded-concept match subtracts 25 points, capped at 50. Single-token concepts supply phrase coverage when no multi-token concepts exist. Body coverage and phrases are deliberately correlated signals with a combined 0.65 weight, not independent evidence. The description contributes to cosine matching.
 
-Inputs may be outside `output/`. Folder recursion is not supported. Imports
-are atomic: a failed import returns no partial records. Documents are not
-logged. After a successful menu import, records are committed to SQLite and
-survive restarts. Browse/search shows limited text previews. The importer API
-remains usable without persistence:
+Default link priority is 45% anchor relevance, 35% URL-path relevance, 10% nearby paragraph/list context and 10% parent relevance. Project thresholds are editable with Strict ≥ Balanced ≥ Discovery.
+
+By default, scoring examines at most 200,000 text characters per record; the project limit can be set from 1,000 to 2,000,000. Larger records become **review** candidates rather than confidently classified results. Coverage labels count stored matching records: 0 Missing, 1 Limited, 2–4 Moderate, 5+ Strong. Copies count too: these labels do not establish independent evidence or comprehensive research coverage.
+
+The six [authored evaluation examples](tests/fixtures/research_judgments.json) produced Precision@3 **0.6667**, Recall@3 **1.0** and NDCG@3 **1.0** in the recorded benchmark. These are synthetic labels for one topic, not real-world relevance accuracy. The optional TF-IDF comparator and full methodology are in [PERFORMANCE.md](PERFORMANCE.md).
+
+</details>
+
+### A separate tool for supervisor research
+
+Menu **5** stores editable research ideas and compares imported supervisor information using sparse TF-IDF cosine similarity. Optional keyword/domain weights are configurable; text-only matching is the default. Explanations retain source identifiers and missing-information notices. Scores do not verify qualifications, availability or willingness to supervise. No real supervisor ground-truth accuracy result is claimed.
+
+<details>
+<summary><strong>Supervisor comparison input bounds</strong></summary>
+
+Default ranking limits are 5,000 candidates, 2 million total characters, 20,000 characters per record, 30,000 vocabulary features, 20 ideas and top 10 results per idea. Heavy numerical libraries load only when comparison starts. Oversized comparisons fail with a filtering/splitting message instead of silent truncation. Duplicate identity grouping can combine namesakes; inspect the original records. Optional embeddings are deferred.
+
+</details>
+
+## Why local-first?
+
+- **Your workspace stays local.** SQLite, project settings, collected evidence and exports live on your machine.
+- **Research continues offline.** Import documents, browse, search, score and export already-collected records without internet access.
+- **No required cloud database or AI service.** There is no automatic upload of document text, embeddings or credentials.
+- **Bounded work over background machinery.** Sequential collection, capped queues, paginated reads and lazy numerical imports suit a modest laptop.
+
+Website collection still contacts approved destinations and their robots endpoints. Installation and dependency auditing contact package services. Databases, backups and exports contain plaintext research data; local-first does not mean encrypted or risk-free.
+
+## Security architecture
+
+**Authorization is a workflow, not an assumption.** Entering a URL does not approve its hostname, and opening a browser does not grant SpiderDeck the browser's session.
+
+| Boundary | Implemented behavior |
+| :--- | :--- |
+| **Before requests** | Exact-host approval; explicit access-check permission; separate collection confirmation. No wildcard/subdomain authorization. |
+| **At the destination** | Validate all DNS answers, reject prohibited IP ranges, dial the selected numeric IP and verify the peer. Recheck retries and redirects. |
+| **On the wire** | Certificate-chain and hostname verification, TLS ≥ 1.2, request deadlines and same-origin redirect enforcement. |
+| **During collection** | robots and response restrictions, accurate User-Agent, rate limits, bounded retries, response/request/page/depth/frontier/duration budgets. |
+| **Inside documents** | File/size checks; bounded ZIP/XML preflight; no macro execution, script execution, archive extraction or automatic OCR. |
+| **At storage/export** | Parameterized SQL, transactions, schema validation, guarded output paths, private files, atomic publication and CSV formula protection. |
+| **In diagnostics** | Fixed audit codes and counts; no document bodies, tokens, cookies or sensitive URLs in crawl logs. Terminal previews remove unsafe controls. |
+
+Restricted Google Docs/Sheets viewer routes and access gates stop collection; obtain an authorized export. Query URLs, userinfo, IP-literal targets and nonstandard ports are unsupported. No browser cookies, sessions or credentials are extracted. Plain HTTP can be explicitly approved but provides no confidentiality; prefer HTTPS.
+
+Preflight reads robots and one seed page only, with at most 8 attempts, 3 redirects per chain, 20 seconds of scheduled active work, 2 MiB per response and 4 MiB total, or stricter configured limits. Those costs count against collection budgets; declining collection saves no preflight records. Invalid legacy allowlist entries remain inactive until reviewed in Settings.
+
+These controls are not a security certification or a parser sandbox. DNS resolver runtime, hostile OS routing, same-user filesystem races and undiscovered dependency vulnerabilities remain limitations. Use appropriate OS isolation for adversarial material.
+
+[Read the threat model, TLS tests, PDF remediation and remaining boundaries →](SECURITY.md)
+
+## Database and data pipeline
+
+**Extract → preserve provenance → normalize conservatively → assess → store transactionally → investigate.**
+
+CSV/XLSX retain headers and rows; PDFs retain page references; DOCX keeps paragraph/table locations; JSON retains pointers. HTML main regions, headings, lists, tables, links and available author/publisher/date fields support inspection. No missing metadata is invented. Raw HTML and original binary files are not copied into SQLite.
+
+Cleaning normalizes Unicode NFC, line endings, trailing/outer whitespace and excess blank lines. Internal mathematical whitespace is retained. Repeated paragraphs are detected and counted, not removed. Original extracted text remains available for comparison. Sinhala/Tamil combining marks and script joiners are preserved; PDF glyph warnings still require human review.
+
+Project search defaults to Unicode literal matching with 20-result pages. Optional contentless FTS5 uses quoted token/phrase matching when available, with literal fallback. FTS and substring search have different multilingual semantics. Source/type and UTC last-association/check-date filters help narrow findings; relevance sorting uses stored project scores.
+
+| Export | What you receive |
+| :--- | :--- |
+| **Markdown** | Project context, source references, score explanations and fenced extracted content. No generated summary. |
+| **JSON** | Structured project data, assessment profiles, original text and derived evidence views. |
+| **CSV** | Predictable columns, provenance and explanations, with formula-injection defenses. |
+
+Exports are confined to output. A missing project-export extension prompts for format. Existing private project exports require explicit replacement consent and a backup; global exports remain create-only. Filters are explicit, and unfiltered project exports include retained review/low-relevance evidence too.
+
+<details>
+<summary><strong>Schema 3, duplicate identity and safe upgrades</strong></summary>
+
+Known schema-1/2 databases receive a private `migration-vN-<uuid>.sqlite3` backup before a transactional migration. Integrity and preserved record/import counts are checked. Failure rolls back; unknown databases are refused rather than recreated. Keep free disk space for backups and stop SpiderDeck before manual recovery.
+
+Schema 3 adds projects, many-to-many record associations, assessment profiles, source/details metadata, collection history, HTTP validators and exact-copy references; FTS5 is optional. Old records and identifiers are preserved. Older application code refuses schema 3; use the current application or restore a trusted backup while stopped. See [recovery instructions](MANUAL_TESTING.md).
+
+New identical text/field payloads reference a canonical record after equality checks while retaining distinct sources, titles, locations and timestamps. Changed content remains distinguishable. Historical duplicates are not compacted; near-duplicate merging is not implemented. Metadata-only changes may retain an existing content identifier. Derived structures can repeat per source.
+
+Use `RecordStore.search` / `iter_records` or project APIs to resolve effective content. Direct SQL against new copy rows sees text/field placeholders; join `record_copies.canonical_id` to the canonical `records` row. Foreign keys and reference integrity are checked. WAL and automatic VACUUM are not enabled by default.
+
+Project deletion needs `DELETE` plus a second confirmation. It removes project metadata/associations and unreferenced assessment profiles, detaches retained history, and preserves shared records, original files and exports. It is not secure erasure.
+
+Project collection caches only safe validators for complete persisted pages. A later 304 reuses evidence only after fresh authorization, destination, TLS, robots and budget checks. Cached/new robots restrictions still apply; cookies and authentication headers are never cached. Quick collection stays uncached.
+
+</details>
+
+<details>
+<summary><strong>Format semantics, stable records and the Python API</strong></summary>
+
+| Input | Record behavior |
+| :--- | :--- |
+| CSV | UTF-8/BOM, comma delimiter, first-row headers; one record per data row |
+| XLSX | All worksheets, first-row headers; cached cell values without formula evaluation |
+| PDF | Text per page; low-text warnings; extraction permission flags respected |
+| DOCX | Paragraphs and table rows with positional table-column names |
+| JSON | Root array items or one root value; nested fields preserved |
+| TXT / Markdown | UTF-8/BOM, one record per document |
+| HTML / HTM | Text without scripts/styles; no external assets fetched |
+
+Blank/duplicate spreadsheet headers receive deterministic unique names. Blank rows are skipped; inconsistent widths are rejected. Cell values normalize to strings. Empty documents return warnings. Folder recursion is not supported. Extraction is all-or-error, with no partial result on failure; project filtering then decides which extracted records to associate.
+
+Record IDs are SHA-256 of canonical JSON containing absolute source, format, text, fields and location, excluding extraction time. Moving a file changes source identity; reimporting unchanged content at the same path preserves IDs and original timestamps. UTC timestamps serialize as ISO 8601 with `Z`. Content hashes separately identify equal format/text/fields across locations. Local reimports still parse the input; there is no byte-level unchanged-file shortcut.
+
+The importer can run without persistence. This example assumes an explicitly chosen, readable `supervisors.csv` in the working directory:
 
 ```python
 from handlers.local import import_document
 
-result = import_document("/Users/me/Documents/supervisors.csv")
+result = import_document("supervisors.csv")
 for record in result.records:
-    payload = record.to_dict()  # JSON-compatible values and UTC timestamp
+    payload = record.to_dict()  # JSON-compatible data; no writes here
 ```
 
-Supported formats:
-
-| Format | Behavior |
-| --- | --- |
-| CSV | UTF-8/BOM, comma delimiter, first row headers; one record per data row |
-| XLSX | All worksheets, first row headers; cached values, no formula evaluation |
-| PDF | Text per page; low-text pages produce warnings; no OCR |
-| DOCX | Paragraphs and table rows; no embedded content execution |
-| JSON | Root array items or one root value; nested fields preserved |
-| TXT / Markdown | UTF-8/BOM text, one record per document |
-| HTML / HTM | Local text only; scripts/styles removed; external assets never fetched |
-
-Blank/duplicate CSV and XLSX headers get deterministic unique names. Blank
-rows are skipped; inconsistent row widths are rejected. Spreadsheet cell values
-are normalized to strings. Empty documents return warnings. DOCX tables use
-positional column names. PDF text extraction permission flags are respected.
-
-Records contain source path, format, title, normalized NFC text, fields, UTC
-extraction time, and location metadata (row/worksheet, page, paragraph/table or
-JSON pointer). IDs are SHA-256 of canonical JSON containing the absolute source,
-format, text, fields and location, excluding extraction time. Reimporting the
-same content at the same path produces the same IDs; moving a file changes them.
-Separate content hashes identify equal format/text/fields across locations;
-these copies are reported and retained with their source provenance.
-Timestamps serialize as ISO 8601 UTC with a `Z` suffix.
-
-## Storage, search and exports
-
-The database is `spiderdeck.sqlite3` inside `[output].dir` (default `output/`).
-Relative output directories resolve against the application directory, not your
-shell working directory. The database is created on the first import, browse,
-search or export operation; startup, security checks and `--dry-run` do not
-create it. Use an output directory owned by you, without group/other write
-permissions. Database files must have mode `0600`; SpiderDeck refuses unsafe
-permissions rather than changing existing files automatically.
-
-Menu workflows retain arrow-key navigation:
-
-- **1) Authorized static web collection** reviews and approves an exact hostname interactively, then requires per-run access-check and collection confirmations.
-- **2) Import** commits the complete document in one transaction.
-- **3) Browse** previews 20 records at a time.
-- **4) Search** combines keyword, source-path substring and exact document-type filters.
-- **5) Research ideas and supervisor ranking** manages saved ideas and compares them locally.
-- **6) Security audit and collection logs** runs the self-check or inspects recent private audit summaries.
-- **7) Settings** shows configuration and offers confirmed hostname/limit editing without opening the database.
-- **9) Export** applies the same filters and asks for a new `.csv` or `.json` filename.
-- **8) Quit** closes the application; saved records remain available next time.
-
-Search is casefolded, NFC-normalized literal substring matching over record title
-and text, with support for Sinhala, Tamil and English. `%`, `_` and SQL syntax
-have no special meaning. All filters are combined with AND. Empty filters select
-all records. Results sort deterministically by source, type and record ID.
-Legacy all-record search uses the portable SQLite path, without FTS5; searches
-scan candidate records and may slow down for very large databases.
-
-Reimporting unchanged records skips their stable identifiers and preserves the
-original extraction timestamps. A manifest of source and record IDs detects a
-previously imported record set. Changed records are added; old versions are
-retained. Equal content at another source/location is flagged, not discarded.
-There is no automatic deletion, replacement, version comparison or byte-level
-unchanged-file shortcut: local reimports still parse the input. Schema version 3
-and an application ID identify current databases. Recognized schema-1/2 databases
-receive the backed-up additive research migration described above. Unrelated files
-and unknown versions are refused. Older code refuses the upgraded database.
-
-Exports stream one record at a time, with no database-sized Python list. JSON
-preserves the record schema, nested fields and Unicode. CSV uses a fixed column
-schema with JSON in `fields` and `metadata`, quotes every cell and prefixes risky
-spreadsheet cells with an apostrophe. CSV protection intentionally changes those
-cells; JSON preserves exact content. Do not strip these prefixes before opening
-CSV in a spreadsheet. Export only to a single filename directly under output;
-subdirectories and absolute export paths are rejected. Legacy export names are
-never overwritten; project exports add explicit backed-up replacement of private
-regular files, never symlinks/hardlinks. Failed exports do not publish partial files.
-Exports include local source paths and document text; share them deliberately.
+For explicit persistence and a create-only global export:
 
 ```python
 from core.storage import RecordStore, SearchFilters
@@ -378,460 +279,183 @@ from exporters.records import export_records
 from handlers.local import import_document
 
 store = RecordStore("output")
-summary = store.save_import(import_document("/Users/me/Documents/supervisors.csv"))
+summary = store.save_import(import_document("supervisors.csv"))
 filters = SearchFilters(keyword="vision", source_type="csv")
 print(summary.inserted, store.count(filters))
 export_records(store.iter_records(filters), store.root, "vision.json", "json")
 ```
 
-API callers choose their output directory explicitly; relative API paths use the
-caller's current directory. For a stopped application, back up the database by
-copying it to a safe location. Do not copy an actively written SQLite file as a
-backup. Database import/restore, encryption and record deletion workflows are not provided.
+Relative API paths use the caller's current directory. The menu instead resolves its configured output against the application directory. The database is `spiderdeck.sqlite3` under output, created lazily on a data operation; startup/settings/self-check do not initialize it. Output must be owned by you and not group/other-writable; database files must be private (0600). Unsafe existing permissions are refused, not silently changed.
 
-## Authorized static web collection
+Global search combines casefolded NFC literal keyword matching over title/text, source substring and exact type using AND. SQL syntax, `%` and `_` are literal input. Empty filters select all records; source/type/ID ordering is deterministic. This portable search does not use FTS and can slow on large datasets.
 
-This increment supports public HTML/XHTML and explicitly authorized **public JSON
-GET endpoints**. It does not log in, use credentials/cookies, submit forms,
-execute JavaScript, fetch assets/iframes, follow refresh tags or use a browser
-for extraction. Optional default-browser opening is separate from collection.
-Authentication alone is not permission for bulk extraction. Obtain appropriate
-permission before collecting anything.
+Global exports stream records. JSON retains nested fields/Unicode; CSV uses fixed columns with JSON fields/metadata, quotes cells and prefixes risky spreadsheet values. Do not strip protective apostrophes. Use a single filename directly under output: absolute paths and subdirectories are rejected. Exports contain source paths and document text; share deliberately. Copy only a stopped database for manual backup. Database encryption, arbitrary database import/restore and individual record-deletion workflows are not provided.
 
-1. Choose **1) Authorized static web collection** and enter a complete HTTPS URL.
-   URL/hostname validation is local and sends no requests. Ordinary query-free
-   public HTTPS URLs need no manual configuration editing.
-2. Review the hostname, page URL and page/depth/delay limits. For a new hostname,
-   choose **Approve for this run only**, **Save hostname for future use**, or
-   **Cancel**. Saving needs confirmation and a private configuration backup;
-   entering the URL alone never grants approval. Exact hosts only: subdomains,
-   different schemes and redirect destinations need their own approved workflow.
-3. Explicitly authorize bounded automated access checks. Only then are DNS, IP,
-   TLS, robots and seed-content checks performed with the existing pinned
-   transport. A private audit is reserved first, without opening SQLite. The
-   check reads robots.txt and one seed page, following only validated same-origin
-   redirects; it does not follow discovered links. It uses at most 8 attempts,
-   3 redirects per chain, 20 seconds of scheduled active work, 2 MiB per response
-   and 4 MiB total, or stricter configured limits. OS DNS duration is not hard
-   capped. Failed checks explain a safe next action.
-4. If checks pass, optionally open the approved URL in the default browser.
-   Browser cookies/sessions remain separate, and opening a page grants no
-   collection access. Browser-launch failure does not prevent collection.
-5. Separately confirm **Start collection**. The cached seed and robots result are
-   reused; preflight requests, bytes and active time count against run limits.
-   Human review time does not add network budget. Each later request resolves
-   and validates again. Declining the final start saves no records from the
-   access check; its aggregate audit remains under output.
-6. Review pages, extracted/saved records, bounded discovered-link counts, skipped
-   work, outcome, database location and audit name. Browse/search/export actions
-   are offered for this origin, including earlier retained runs. A later blocked
-   page can stop collection while previously accepted pages remain saved.
+</details>
 
-Saved hostnames still need per-run confirmation. Settings can add/remove them
-without network requests. Invalid legacy allowlist entries (such as complete
-URLs) remain preserved but inactive; they are never silently converted into
-approvals. Remove an inactive entry through Settings when appropriate.
+## Performance
 
+Built and measured on **macOS arm64 · Python 3.13.4 · SQLite 3.50.1**. The recorded 1,000-record synthetic research run used `tracemalloc`:
 
-Approval is for one origin per run, not every host in the configured allowlist.
-Same-origin links/HTTP redirects may be followed; external links are ignored.
-Cross-origin redirects (including HTTP → HTTPS) stop and require a separate run
-with explicit approval. Start directly at the HTTPS URL where possible. HTTP on
-port 80 is supported with explicit approval but does not provide TLS confidentiality;
-HTTPS on port 443 validates the original hostname and certificate chain. Other
-ports, userinfo, query-bearing/signed URLs, ambiguous paths and IP-literal targets
-are deliberately unsupported. Hostnames with public IPv6 DNS records are supported.
-No proxy, environment proxy setting, authentication header or cookie jar is used.
+| Workload | Observed time |
+| :--- | ---: |
+| Score 1,000 records | 0.1981 s |
+| First project ingestion | 0.6135 s |
+| Literal project search, first 20 results | 0.0089 s |
+| JSON export, 1,000 records | 0.2129 s |
 
-Every HTTP request (including robots, retries and redirect hops) resolves all
-addresses, rejects prohibited/mixed results, and connects to a selected approved
-numeric IP without another DNS lookup. The TCP peer is checked. HTTPS retains the
-hostname for SNI/certificate validation and the HTTP Host header. Retries may
-select another address only after revalidating the complete DNS result set.
-This is implemented with Python's [HTTP client](https://docs.python.org/3.13/library/http.client.html)
-and a verifying [TLS context](https://docs.python.org/3.13/library/ssl.html).
-The legacy `validate_url` helper is not the live network enforcement boundary.
+Process RSS high-water was **52.77 MiB** for that run, including setup and native allocations. These are development observations, not hard memory ceilings, live-network measurements or comparative throughput guarantees.
 
-The crawl is sequential. Robots rules are fetched through the same transport
-before pages, then enforced on every page and redirect destination. The parser
-supports merged matching User-Agent groups, longest-match rules, Allow ties,
-`*`/`$` paths, Crawl-delay and Request-rate. A robots 404 permits crawling; access
-failures, unavailable robots, invalid rate directives and unsupported responses fail closed.
-Unknown directives/unparseable lines are ignored; an empty rule file permits paths.
-Path matching follows [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html)
-matching concepts; this collector deliberately narrows allowed URL and redirect scope.
-The larger of the configured delay and robots delay is used. Transient transport
-failures and 502/503/504 get bounded exponential retries; Retry-After is respected
-or collection stops if the requested wait exceeds the run budget. Permission
-failures and 429 stop without retrying. Robots is a technical signal, not legal
-or organizational authorization.
+[Methodology, full measurements, limitations and reproducible benchmarks →](PERFORMANCE.md)
 
-Defaults: 50 pages, depth 2, 1.5 seconds between requests, one concurrent request,
-10 seconds per request, two retries, three redirects per chain, 200 transport
-attempts, 1,000 scheduled URLs, 2 MiB per response, 10 MiB accepted response bodies,
-10,000 records and a 120-second scheduling budget. Robots and retries count toward
-request/byte budgets. Response headers/chunk framing have a 64 KiB cumulative
-line budget. Compressed responses are refused; clients request identity encoding.
-The active socket is closed by a bounded request-deadline watchdog; the watchdog
-is cancelled/joined after each request. There are no persistent worker processes.
-OS DNS lookup itself cannot be interrupted reliably, so this is not a hard wall
-clock/CPU/RAM sandbox. There is no crawl throughput benchmark against live targets.
-
-Collection stops on access restrictions, CAPTCHA/login indicators, export-disabled
-content, Google Docs/Sheets viewer URLs or insufficient static text. It suggests
-an authorized export or officially supported API instead. Restriction heuristics
-are conservative and can reject legitimate pages discussing these terms. The
-collector never performs OCR, accessibility scraping or bypasses access gates.
-JSON endpoints preserve structured items and JSON pointers; malformed/nonfinite
-JSON and unexpected content types are rejected. Text encoding is limited to UTF-8,
-ASCII, ISO-8859-1 and Windows-1252; plain text is accepted only for robots.txt.
-
-Each run publishes a new private `crawl-audit-<id>.json` under output. It records
-origin, fixed event/outcome codes, timestamps and aggregate collection/storage
-counts. It excludes paths, query strings, bodies, response headers, credentials
-and exception details. Audit file access is checked before network activity.
-An abrupt process/OS failure or output-disk failure can prevent final audit
-publication; the UI reports an unavailable audit rather than claiming success.
-Previously accepted pages can be retained when a later page stops the run. Each
-page is stored transactionally; a storage failure can leave earlier pages saved
-and is recorded as `storage_failed`. Existing records/files are never replaced.
-
-All collection tests run offline with mocked DNS and socket wire fixtures. They
-exercise real HTTP parsing/serialization and storage integration, but do not
-claim a real TLS handshake, real remote server interoperability or live-site
-permission. No university website or other live target was contacted in testing.
-
-## Research ideas and supervisor ranking
-
-Choose **5)**, then **Create idea**, **List ideas**, **Edit idea**, **Remove idea**,
-or **Compare ideas**. Ideas store a title, description, keywords, optional domain,
-and optional per-keyword weights in SQLite. A title is required; missing
-information remains visible in the comparison. Edit prompts keep a field when
-left blank; enter `-` to clear it. Keyword weights are JSON, e.g. `{"vision": 2}`,
-and must refer to listed keywords. Removal archives an idea instead of deleting
-its stored contents. There is a limit of 1,000 active saved ideas.
-
-Compare uses checkboxes (Space to select, Enter to confirm) for one or several
-ideas, then the existing keyword/source/type filters to choose imported records.
-The terminal shows the top results per idea: name when available, score, shared
-terms, every source document, score components, reasoning and uncertainty.
-Optional comparison JSON exports preserve selected ideas, filters, weights,
-rankings and source record identifiers. Export publication uses the same safe,
-private, no-overwrite output mechanism as document exports.
-
-The four initial FYP topics are provided as editable **example data** in
-[examples/research_ideas.json](examples/research_ideas.json). They are never
-hardcoded into the ranker or automatically inserted. To save them explicitly,
-run this from the repository with the virtual environment active (adapt the
-output path if configured differently):
-
-```python
-import json
-from pathlib import Path
-from core.storage import RecordStore
-from rank.models import ResearchIdea
-
-store = RecordStore("output")
-existing = {idea.title for idea in store.list_ideas()}
-for entry in json.loads(Path("examples/research_ideas.json").read_text(encoding="utf-8")):
-    if entry["title"] not in existing:
-        store.add_idea(ResearchIdea(**entry))
-        existing.add(entry["title"])
+```zsh
+python -m benchmarks.research --records 1000 --output-dir output
 ```
 
-### Methodology and interpretation
+The opt-in benchmark uses private synthetic workspaces and does not open your existing application database. Reports are retained under output.
 
-The default is scikit-learn TF-IDF with unigram/bigram features and cosine
-similarity ([TF-IDF documentation](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html),
-[cosine documentation](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.cosine_similarity.html)).
-The vocabulary/IDF is fit on the selected candidate documents; each
-idea's title and description are transformed against that fixed vocabulary.
-Unicode tokens preserve combining marks for Sinhala and Tamil. There is no
-translation, stemming, semantic model, network call or model download.
-Changing the corpus can change the scores, so scores from different comparisons
-are not directly calibrated against each other.
+## Technology stack
 
-Recognized expertise fields are preferred over full row text. Default name
-aliases include `Name`, `Supervisor` and `Supervisor Name`; expertise aliases
-include `Expertise`, `Research Interests` and `Research Areas`. These alias lists,
-plus email, affiliation and domain aliases, can be configured in `[ranking]`.
-Local-language column headers can be added explicitly. No name or expertise is
-invented from free text: missing fields are reported, and unstructured documents
-remain document-level candidates. Headers, footers and whole-document context
-are not reconstructed across imported paragraphs/pages.
+| Layer | Implementation |
+| :--- | :--- |
+| Runtime & terminal | Python, Rich, Questionary; native macOS picker with fallbacks |
+| Web collection | Purpose-built pinned socket/TLS HTTP transport; BeautifulSoup4 for HTML |
+| Documents | `csv` / `json` / text from Python; openpyxl, pdfplumber + pdfminer.six, python-docx |
+| Persistence & search | Python SQLite, parameterized SQL, optional FTS5 |
+| Retrieval | Deterministic topic scoring; scikit-learn TF-IDF for supervisor comparison |
+| Verification | pytest, loopback HTTPS fixtures, pip-audit, synthetic benchmarks |
 
-Exact copies are grouped before fitting TF-IDF. Named rows are also grouped by
-email when available, otherwise name plus affiliation, otherwise name plus
-source. Copied content connects groups while retaining every source and record
-ID. Each distinct text chunk contributes once. This prevents copied rows from
-boosting a supervisor's rank. Name-based grouping is unverified and can combine
-same-named people; inspect source records, especially contradictory versions.
-Historical imported records remain eligible unless excluded with filters.
+The [requirements](requirements.txt) also include historical/future-facing packages such as Playwright, HTTPX, selectolax and pandas. Their presence does not imply browser rendering or authenticated collection is supported. The live static collector uses the controlled transport above.
 
-Optional scoring blends three components using a normalized weighted mean:
+## Project structure
 
 ```text
-score = (text_weight * cosine_similarity
-       + keyword_weight * weighted_keyword_coverage
-       + domain_weight * structured_domain_match) / sum(component_weights)
+spiderdeck.py          CLI entry point and workflow routing
+core/                 Configuration, record models, text utilities, SQLite
+research/             Projects, relevance, schema, persistence, validator cache
+crawler/              Static collector, pinned transport, robots, bounded frontier
+handlers/             Validated local document extraction
+processing/           Conservative cleaning and structured evidence
+rank/                 Research ideas and supervisor TF-IDF comparison
+exporters/            Global CSV/JSON and project Markdown/JSON/CSV
+security/             Network/file policy, Office preflight, self-check
+ui/                   Terminal workflows, native picker, settings, evidence views
+benchmarks/           Opt-in synthetic performance tools
+tests/                Unit, integration, hostile-document and security fixtures
+assets/readme/        Self-contained static SVG artwork
 ```
 
-Keyword coverage uses token-boundary phrases in expertise/fallback text and the
-idea's keyword weights (default 1, zero disables a keyword). Domain matching is
-binary phrase matching against recognized structured domain fields only. These
-are lexical heuristics. Text, keyword and domain features can be correlated; they are
-blended rather than independently added as confidence evidence. Default weights
-are text=1, keyword=0, domain=0. Keywords/domain influence scores only when their
-component weights are positive; per-keyword weights alone do not enable that
-component. Missing inputs score zero without silently renormalizing the weights.
-All-zero or nonfinite component weights are refused.
+<details>
+<summary><strong>Terminal controls, configuration and defaults</strong></summary>
 
-**Scores are heuristic relevance estimates, not verified supervisor suitability.**
-They do not establish availability, willingness or qualifications. Empty idea
-descriptions use title-only text matching with a warning; out-of-vocabulary
-queries and empty candidate text produce explicit zero similarity. Ties sort
-by name, source and record IDs; scores round to six decimals.
+```zsh
+python spiderdeck.py --plain                   # numbered prompts
+python spiderdeck.py --no-animation            # static presentation; --no-fx is an alias
+python spiderdeck.py --quiet --reduced-motion  # approvals/results remain visible
+python spiderdeck.py --animate                 # optional startup effects, after checks
+python spiderdeck.py --config research.toml    # explicitly selected TOML input
+python spiderdeck.py --show-settings           # read-only effective JSON settings
+python spiderdeck.py --security-check --quiet  # offline PASS/FAIL smoke check
+```
 
-Default comparison bounds: 5,000 input records, 2 million text-plus-serialized-field
-characters, 20,000 characters per record, 30,000 vocabulary features, 20 selected
-ideas, and top 10 results per idea. Limits fail with a filtering/splitting message;
-inputs are never silently truncated. Sparse matrices avoid all-pairs document
-comparisons, and heavy numerical libraries load only when comparison begins.
-No embeddings installation is required. Optional semantic embeddings are deferred.
-The tests use synthetic fixtures; there are no labeled real supervisor judgments,
-so no Precision@K, Recall@K or NDCG accuracy claims are made.
+`--reduced-motion`, `SPIDERDECK_REDUCED_MOTION=1`, quiet/plain mode and noninteractive terminals suppress cosmetic motion. `NO_COLOR` and `TERM=dumb` use plain navigation. EOF/blank confirmation never grants approval. Ctrl+C cancels; an interrupted SQLite transaction rolls back. Earlier accepted pages may already be saved. Exit codes: 0 success, 1 failed explicit self-check, 2 invalid arguments/configuration, 130 interrupted work, 141 broken output pipe.
 
-## Configuration and limits
+Configuration loads from the application-directory [config.toml](config.toml), or an explicit `--config` path. Relative output paths resolve from the application directory. All generated data stays under output. Explicit local inputs can live elsewhere.
 
-`config.toml` is loaded relative to the application directory. `[import]`
-configures input bytes (default 20 MiB), expanded archive bytes (100 MiB), ZIP
-members (5,000), records (20,000), extracted text/field characters (10 million),
-PDF pages (500), minimum page text (10 characters), XML nesting depth (100),
-and spreadsheet columns (1,024). Limits must be positive
-integers. Imports use bounded input snapshots and lazy parser imports. They do
-not stream indefinitely; parser CPU and peak memory are not hard sandboxed.
-Keep limits modest on an 8 GB Mac and import only documents you trust enough to
-process locally. XLSX/DOCX archives receive a streaming XML preflight before the
-Office libraries run. DTDs/entities, unsafe ZIP member paths, symlinks, duplicate
-members, malformed XML and excessive nesting are refused. Worksheet dimensions,
-actual cell coordinates and row counts are checked, including unused/blank rows.
-Trim inflated worksheet ranges or split large sheets; increase
-`max_spreadsheet_columns` explicitly if a legitimate wide sheet requires it.
+**Settings (7)** offers approved-host management, crawl limits, default-limit restoration and confirmed recovery of unreadable configuration. Writes are atomic, retain private backups, preserve unrelated content where safely editable and reject stale/concurrent changes. Missing or unsafe files are not overwritten. Restart after recovery and for non-crawl settings. Defaults below are code defaults; inspect effective settings for local overrides.
 
-## Security and authorization
+| Limit | Default |
+| :--- | :--- |
+| Crawl | 50 pages; depth 2; 1.5 s delay; 10 s request timeout |
+| Network budgets | 200 transport attempts; frontier 1,000; 120 s duration |
+| Response/data | 2 MiB per response; 10 MiB total; 10,000 records |
+| Local input | 20 MiB; 20,000 records; 10 million extracted text/field characters |
+| Office archives | 100 MiB expanded; 5,000 members; XML depth 100; 1,024 spreadsheet columns |
+| PDF | 500 pages; minimum 10 extractable characters per page |
 
-Read [SECURITY.md](SECURITY.md). Local import never executes macros, scripts or
-shell commands. Macro-bearing Office files are rejected. Encrypted or restricted
-PDFs require an authorized export. No OCR or restriction workaround is provided.
-Authentication alone does not authorize bulk extraction. Obtain permission and
-an owner-provided export where access is restricted.
+The audit menu reads up to 20 newest bounded private collection summaries without opening SQLite. The legacy file logger is not activated. Safe diagnostics are distinct from intentionally content-bearing records and exports.
 
-No import data, embeddings, credentials or document contents are sent to remote
-services. Menu imports write only to the configured output directory. The standalone
-importer still performs no writes. Output files reject traversal and path
-escapes. Exports use exclusive creation and atomic publication.
+</details>
 
-## Verification
+<details>
+<summary><strong>Document handling and troubleshooting</strong></summary>
+
+- **No picker?** Local macOS Terminal uses NSOpenPanel if PyObjC is already present, then tkinter if available, then the built-in `choose file` dialog through a fixed `osascript` argument list. No GUI framework is installed. SSH/headless sessions use a text-path fallback; cancelling a native dialog returns without a typed-path prompt.
+- **Corrupt or unreadable file?** Check permissions and obtain a valid export. Text inputs must be UTF-8. Inputs use bounded snapshots and concurrent-change checks; explicit input symlinks can resolve to readable files, while unsafe output symlinks are refused.
+- **Scanned, encrypted or restricted PDF?** Request an authorized text-based export. No OCR or permission workaround is provided. The pinned patched PDF stack is detailed in [SECURITY.md](SECURITY.md).
+- **Unexpected spreadsheet result?** Formulas are not executed; cached values can be absent or stale. Inflated dimensions/coordinates and oversized archives are refused. Trim or split a legitimate large sheet rather than removing safety checks.
+- **Missing document content?** DOCX headers, footers, text boxes and nested tables are not imported. HTML is not browser-rendered; Markdown remains source text. Structural previews have independent count and 500,000-character budgets; original extracted text remains available.
+- **Collection blocked?** Check the exact host, robots, supported URL format and permission. Opening the approved URL in your browser is optional and does not share its authenticated session. Obtain an owner export when access is restricted.
+- **Slow or large input?** Limits reduce ordinary resource use but cannot enforce hard parser CPU/RAM bounds. Process hostile files under OS isolation and keep dependencies audited.
+
+A full terminal-emulator/VoiceOver accessibility review and native macOS visual acceptance remain manual tasks. [MANUAL_TESTING.md](MANUAL_TESTING.md) records the checks without claiming they passed.
+
+</details>
+
+## Testing
+
+The complete suite was executed for this README refresh: **544 tests passed**. It includes generated document fixtures, transaction/migration regressions, focused collection, project workflows, export safety, diagnostic privacy and real TLS certificate integration. No live university website is needed.
 
 ```zsh
 python -m pip install -r requirements-dev.txt
 python -m pytest -q
 python spiderdeck.py --security-check
-bash -n install.sh
+python -m pip check
 python -m pip_audit --local
 ```
 
-Tests generate all supported document formats in temporary directories and run
-without external websites. Real TLS integration tests bind an ephemeral HTTPS
-server to `127.0.0.1`; restricted test environments must permit local listeners.
-Tests generate private temporary CA/leaf keys and validate certificates using
-OpenSSL. Test-only routing maps the approved fixture endpoint to that listener;
-production continues to reject loopback and nonstandard ports. You can run these
-separately with `python -m pytest tests/test_tls_integration.py -q`.
-The security self-check has 23 in-process cases and needs no network or files;
-it is a smoke test, not proof of network security. The dependency audit queries
-package names/versions and needs network access; it sends no imported documents.
+The offline self-check has 23 smoke-test cases; it is not a penetration test. Dependency auditing needs network access and covers known package advisories, not unknown flaws or the OS. Audit again for your installed environment.
 
-## Troubleshooting and limitations
-
-For unreadable/corrupt documents, verify permissions and obtain a valid original
-export. Text inputs must be UTF-8. For scanned or low-text PDFs, request an
-authorized text-based export; no text is silently fabricated. Cached XLSX formula
-values may be absent or stale. DOCX headers, footers, text boxes and nested tables
-are not imported. HTML is not rendered and Markdown is retained as source text.
-Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
-
-Security regression coverage includes Phase G TLS, diagnostic privacy and hostile
-document tests. JavaScript rendering, authenticated sessions and broader API
-support remain deferred until
-equivalent transport-level network policy can be enforced.
-
-The PDF stack is pinned to `pdfplumber==0.11.10` and
-`pdfminer.six==20260107`, addressing the two Phase A audit findings. Importing
-PDFs with an outdated parser is refused. See [SECURITY.md](SECURITY.md) for the
-advisories, verification results and remaining boundaries.
-
-## Phase B verification snapshot
-
-On the development Python 3.13 environment, the complete suite passed **90 tests**,
-the security self-check passed all **11 cases**, dependency imports and `pip check`
-passed, and the final installed-package audit reported no known vulnerabilities.
-Tests include offline import → persistence → reopen → filtered search → export,
-transaction rollback, duplicate/collision handling, Unicode, unsupported schemas,
-unsafe filesystem targets, failed export cleanup and menu workflows.
-
-A generated 5,000-row CSV measured 0.040 s import, 0.638 s transactional save,
-0.005 s keyword count and 0.672 s streamed JSON export. Save/search/export peaked
-at 0.79 MiB incremental Python allocations under `tracemalloc`, excluding the
-already imported records and native SQLite/parser allocations. This is a small
-synthetic development baseline, not an upper bound or large-database benchmark.
-
-
-## Phase C verification snapshot
-
-The complete suite passes **142 tests**, including all Phase A/B behavior,
-version 1 → 2 migration preservation and rollback, idea lifecycle and validation,
-toy expected ordering, missing information, zero similarity, duplicate grouping,
-Sinhala/Tamil text, reproducibility, configurable weights, bounded workloads,
-menu integration, offline end-to-end comparison and no-overwrite JSON export.
-The 11-case security self-check, dependency imports and `pip check` pass; the
-installed-environment dependency audit reports no known vulnerabilities. No new
-runtime dependency was added. Optional semantic embeddings remain unimplemented.
-
-A synthetic comparison of 1,000 candidates against four ideas took 0.232 s warm.
-A separate cold measurement under `tracemalloc` took 4.423 s and peaked at 71.9 MiB
-of Python allocations including lazy numerical-library imports. Imported input
-records were allocated before tracing; native allocations and total process RSS
-are excluded. This is a development baseline, not a hard resource bound or an
-accuracy evaluation.
-
-
-## Phase D static-collection verification snapshot
-
-The complete suite passes **262 tests**, including all Phase A/B/C behavior and
-120 additional offline collection/security cases. The 11-case security self-check,
-installed dependency imports, `pip check`, installer shell syntax and diff checks
-pass. The installed-package dependency audit reports no known vulnerabilities.
-No new runtime dependency was introduced and no live collection was performed.
-
-Unit tests cover authorization before DNS, URL/IP bypasses, mixed DNS results,
-IPv6 translation ranges, DNS changes, direct-IP dialing, peer verification,
-TLS context requirements/failures, request deadlines, header/body bounds,
-robots matching/rates, redirects, retries, restriction detection and audit privacy.
-Offline integration uses mocked socket wire responses with actual HTTP parsing,
-SQLite persistence and search, plus menu/audit workflows. Manual code review
-addressed SSLKEYLOGFILE writes, retry-after delays, HTML base links and empty
-script-only pages. This is not a live HTTPS interoperability test or an external
-penetration test. Authenticated/browser collection and unrestricted API URLs
-remain deliberately unavailable.
-
-
-## Phase E verification snapshot
-
-The full suite passes **313 tests**, preserving all 262 earlier cases and adding
-51 CLI/presentation/cancellation cases. The 11-case security self-check, installed
-imports, `pip check`, installer shell syntax and diff checks pass. The final
-installed-package dependency audit reports no known vulnerabilities. No new
-runtime dependency or database schema change was introduced.
-
-Coverage includes startup security-before-effects ordering, display overrides,
-quiet failures, actual piped import/search/export sessions, EOF at target approval,
-cancelled idea forms, read-only settings/audit inspection, unsafe audit files and
-progress renderer failures. A manual PTY smoke test verified arrow-key selection
-and clean Ctrl+C exit; a full terminal-emulator/VoiceOver review remains pending.
-
-Three fresh-process `--plain --quiet` runs including interpreter startup, security
-checks and immediate exit took 0.229, 0.134 and 0.138 seconds on the development
-environment. These are small startup samples with filesystem caches in effect,
-not idle CPU measurements or a comprehensive Phase F performance assessment.
-
-
-## Phase F: performance and reliability
-
-Run the opt-in offline synthetic benchmark with:
+<details>
+<summary><strong>Focused test and benchmark commands</strong></summary>
 
 ```zsh
-python -m benchmarks.run --rows 5000 --repeats 3
+# Real local HTTPS: certificates, timeouts, cancellation and conditional reuse
+python -m pytest tests/test_tls_integration.py -q
+
+# Hostile files and diagnostic privacy
+python -m pytest tests/test_malicious_documents.py tests/test_log_privacy.py -q
+
+# Projects, focused crawling, UI integration and project exports
+python -m pytest tests/test_research.py tests/test_focused_research.py tests/test_research_ui.py tests/test_research_export.py -q
+
+# Existing extraction/storage/ranking and CLI regression coverage
+python -m pytest tests/test_local_import.py tests/test_storage.py tests/test_ranking.py tests/test_cli.py -q
+
+# Opt-in performance, with synthetic fixtures only
+python -m benchmarks.run --rows 1000 --repeats 1 --output-dir output
+python -m benchmarks.research --records 1000 --output-dir output
+
+# Installer syntax; does not install anything
+bash -n install.sh
 ```
 
-Reports are private files under a new directory in configured output. The tool
-never reads user documents or the existing application database and cleans only
-its own synthetic workspaces by default. Memory/profiling modes, methodology,
-observed before/after results and limitations are in [PERFORMANCE.md](PERFORMANCE.md).
+Real TLS tests generate temporary CA/leaf keys and bind an ephemeral loopback listener. Environments must permit local sockets. Test-only routing does not relax production loopback rejection. Certificates cover valid, expired, untrusted and hostname-mismatched cases; handshake deadline/cancellation behavior is exercised too. Tests are not an independent security audit.
 
-Measured warm ranking improved from 0.267 s to 0.050 s and storage-only reimport
-from 0.118 s to 0.049 s on the documented fixtures. CSV Python allocation peak fell
-from about 20.0 MiB to 7.5 MiB. Input reads reject concurrent changes and no longer
-preallocate the full configured maximum for every small file. CSV decoding is
-incremental over the existing bounded snapshot. PDF page limits are enforced
-before constructing later page wrappers; permission checks and no-OCR behavior
-remain intact. Public record serialization, ranking outputs, SQL transactions,
-security controls and schema version 2 are preserved. No runtime dependency or
-application concurrency was added.
+</details>
 
+## Roadmap
 
-Phase F verification: **334 tests pass**, including the unchanged ranking output
-snapshot, file-change/FIFO/symlink races, lazy PDF limits and cleanup, nested-record
-persistence, all benchmark modes/workloads and honest failure reporting. The
-11-case self-check, imports, `pip check`, installer syntax and diff checks pass;
-the installed-package dependency audit reports no known vulnerabilities. A
-20,000-row synthetic pipeline run also completed. Hard parser CPU/RAM isolation,
-real-world relevance evaluation and live-network performance remain outside these
-measurements.
+| Status | Scope |
+| :--- | :--- |
+| **Implemented** | Research projects, focused static collection, local import, explainable lexical scoring, schema-3 persistence, project search and research exports. |
+| **Validation pending** | Native Finder/browser appearance and focus, broader accessibility review, independently labeled research relevance evaluation. See [manual checks](MANUAL_TESTING.md). |
+| **Deferred / exploratory** | Optional semantic search, relationship graphs and richer extraction. No release schedule or automatic model downloads are promised. |
 
-## Phase G security hardening
+Authenticated/browser collection requires equivalent transport-level policy before implementation. It is not enabled by installing Playwright. This remains a Python terminal application; no V2 graphical interface is included.
 
-Real local HTTPS integration tests cover valid, expired and untrusted certificates,
-hostname mismatch, handshake timeout, socket cancellation, and a keyboard
-interrupt during a blocked handshake. Offline adversarial fixtures cover corrupt
-PDFs and Office archives, DTD/entity attacks (including UTF-16), ZIP traversal,
-symlinks/duplicates, encryption flags, CRC errors, archive expansion, excessive
-XML nesting and malicious spreadsheet dimensions/cell references.
+## Contributing
 
-Known parser logger namespaces and warnings are contained during local and web
-parsing, with a generic notice when diagnostics are omitted. Raw document text,
-tokens, cookies, passwords and sensitive query URLs are tested against captured
-logs/output. Public parser and transport exceptions suppress document-derived
-chained tracebacks. HTTP header debug printing is disabled; audit error/event
-codes use a finite allowlist. The unused legacy logging helper no longer creates
-`logs/` files or records raw source strings. Collection audit files remain under
-the configured output directory.
+Found a reproducible bug, a parser edge case or a clearer explanation? [Open an issue](https://github.com/NipunChamodya/SpiderDeck/issues) or propose a focused pull request. Include Python/macOS versions, sanitized steps and a small synthetic fixture where possible. Run relevant tests and preserve permission checks, source provenance and existing database compatibility.
 
-The parser diagnostic guard supports the application's serial parsing workflow;
-it temporarily changes dependency logger handlers and process-wide warning hooks.
-Concurrent external reconfiguration of those hooks is unsupported. Imported
-records, explicit browsing and user-requested exports still contain the data you
-chose to collect; they are not diagnostic logs and are not automatically redacted.
-See [SECURITY.md](SECURITY.md) for verification scope and remaining limitations.
+Do not attach credentials, real private documents, browser profiles, databases or sensitive audit data. For security work, read [SECURITY.md](SECURITY.md) first; keep public reports free of secrets and harmful operational detail. Documentation and accessibility improvements are welcome alongside code.
 
-Verified on 2026-10-25 with Python 3.13.4: **419 tests passed in 8.55 seconds**,
-all 23 self-check cases passed, dependency imports and `pip check` passed, and
-`pip-audit --local` reported no known vulnerabilities. The full suite included
-all 7 real local TLS cases; none were skipped. No runtime dependencies or database
-schema changes were introduced by this Phase G increment.
+## License
 
-## V1 manual acceptance checks
+[MIT](LICENSE) · Copyright © 2026 Nipun Karunarathna.
 
-See [MANUAL_TESTING.md](MANUAL_TESTING.md) for beginner macOS checks of native
-selection, previews, interactive approvals, settings, recovery and exports.
-Native dialog and browser interactions are mocked automatically; no visual macOS
-acceptance test or live-site collection is claimed as performed. No new runtime
-dependency or database schema change was introduced for these V1 workflows.
+---
 
-V1 verification on 2026-10-25 (Python 3.13.4): **485 tests passed in 8.18 seconds**,
-including 65 focused configuration/workflow tests and all 8 real loopback HTTPS
-integration cases. All 23 security self-check cases, dependency imports,
-`pip check`, installer shell syntax and diff checks passed. `pip-audit --local`
-reported no known vulnerabilities. Native Finder-panel appearance/focus and
-browser handoff remain NOT RUN manually; use the manual-testing guide.
-
-
-Research-engine known limitations: topic matching is lexical (including false
-positives/negatives), not semantic understanding. Source classification and
-publication metadata are not verified. Source metadata-only changes may not create
-a new content identity; original extraction metadata is retained. Near-duplicate
-merging, generated summaries, embeddings, browser/authenticated collection,
-automatic database compaction and Windows support are not implemented. Collection
-is sequential per explicitly approved seed; exports contain all linked records
-unless explicitly filtered, including retained review/low-relevance evidence.
-Native macOS visual acceptance remains documented rather than claimed complete.
+<p align="center"><img src="assets/readme/spiderdeck-logo.svg" width="40" height="40" alt="SpiderDeck geometric spider emblem" /></p>
+<p align="center"><strong>Engineered with curiosity. Built for research.</strong><br />Created by <a href="https://github.com/NipunChamodya">Nipun Karunarathna</a>.</p>
+<p align="center"><a href="https://github.com/NipunChamodya/SpiderDeck">Repository</a> · <a href="SECURITY.md">Security</a> · <a href="PERFORMANCE.md">Performance</a> · <a href="MANUAL_TESTING.md">Manual testing</a> · <a href="#spiderdeck">Back to top ↑</a></p>

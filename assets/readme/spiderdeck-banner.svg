@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="460" viewBox="0 0 1200 460" role="img" aria-labelledby="title desc">
+<title id="title">SpiderDeck — collect intelligently, investigate locally</title>
+<desc id="desc">A geometric eight-legged spider connects website, document, project, extraction, SQLite, search and evidence nodes. A static dark research console with cyan and green accents.</desc>
+<defs>
+ <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101827"/><stop offset="1" stop-color="#080B12"/></linearGradient>
+ <linearGradient id="metal" x2="1" y2="1"><stop stop-color="#193B4B"/><stop offset="1" stop-color="#101827"/></linearGradient>
+ <radialGradient id="halo"><stop stop-color="#00D9FF" stop-opacity=".13"/><stop offset="1" stop-color="#00D9FF" stop-opacity="0"/></radialGradient>
+ <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#94A3B8" stroke-opacity=".045"/></pattern>
+</defs>
+<rect width="1200" height="460" rx="18" fill="url(#bg)"/>
+<rect x="1" y="1" width="1198" height="458" rx="17" fill="url(#grid)" stroke="#273449"/>
+<path d="M32 66H1168M32 398H1168" stroke="#263448"/>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="2" fill="#94A3B8">
+ <text x="36" y="42">SPIDERDECK / RESEARCH SYSTEMS</text><text x="944" y="42">LOCAL-FIRST · V1</text>
+ <text x="36" y="430">AUTHORIZED SOURCES. TRACEABLE EVIDENCE.</text><text x="943" y="430">YOUR MACHINE.</text>
+</g>
+<circle cx="865" cy="230" r="218" fill="url(#halo)"/>
+<g fill="none" stroke="#00D9FF" stroke-opacity=".14">
+ <circle cx="865" cy="230" r="164"/><circle cx="865" cy="230" r="118"/>
+ <path d="M645 230H1085M865 78V382" stroke-dasharray="3 9"/>
+</g>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+ <text x="48" y="134" fill="#00FF9C" font-size="12" font-weight="600" letter-spacing="3">RESEARCH, WITH A SOURCE TRAIL.</text>
+ <text x="42" y="211" fill="#F8FAFC" font-size="69" font-weight="750" letter-spacing="-2">SPIDERDECK</text>
+ <text x="48" y="257" fill="#F8FAFC" font-size="25" font-weight="500">Collect intelligently.</text>
+ <text x="48" y="292" fill="#00D9FF" font-size="25" font-weight="500">Investigate locally.</text>
+ <text x="48" y="339" fill="#94A3B8" font-size="15">Authorized websites. Local documents.</text>
+ <text x="48" y="362" fill="#94A3B8" font-size="15">One source-attributed research workspace.</text>
+</g>
+<g fill="none" stroke="#344D63" stroke-width="1.2">
+ <path d="M817 186L731 112L653 112M842 171L803 91M889 169L949 95L1050 95M915 195L1004 160L1094 169M917 245L1052 257M895 285L965 348L1084 348M838 286L764 354L674 354M813 248L710 263L648 235"/>
+ <path d="M653 112L648 235L674 354M1050 95L1094 169L1052 257L1084 348" stroke-dasharray="4 7"/>
+</g>
+<g fill="none" stroke="#00D9FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M848 211L802 183L779 145L738 132M846 225L789 215L758 186L711 188M846 241L787 258L762 293L721 306M852 257L820 303L825 334L800 361"/>
+ <path d="M880 211L926 183L949 145L990 132M882 225L939 215L970 186L1017 188M882 241L941 258L966 293L1007 306M876 257L908 303L903 334L928 361"/>
+</g>
+<g stroke="#00D9FF" stroke-width="1.5">
+ <path d="M864 166L887 187L882 220L864 233L846 220L841 187Z" fill="url(#metal)"/>
+ <path d="M864 222L887 239L893 267L878 294L864 307L850 294L835 267L841 239Z" fill="url(#metal)"/>
+ <path d="M864 240V287M850 252L864 262L878 252" fill="none" stroke="#00FF9C"/>
+</g>
+<path d="M852 199L859 203M876 199L869 203" stroke="#00FF9C" stroke-width="3" stroke-linecap="round"/>
+<circle cx="653" cy="112" r="9" fill="#101827" stroke="#00D9FF"/><circle cx="653" cy="112" r="2.5" fill="#00D9FF"/><text x="640" y="95" text-anchor="end" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">WEBSITES</text>
+<circle cx="803" cy="91" r="9" fill="#101827" stroke="#00FF9C"/><circle cx="803" cy="91" r="2.5" fill="#00FF9C"/><text x="803" y="75" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">PROJECTS</text>
+<circle cx="1050" cy="95" r="9" fill="#101827" stroke="#00D9FF"/><circle cx="1050" cy="95" r="2.5" fill="#00D9FF"/><text x="1050" y="78" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">DOCUMENTS</text>
+<circle cx="1094" cy="169" r="9" fill="#101827" stroke="#94A3B8"/><circle cx="1094" cy="169" r="2.5" fill="#94A3B8"/><text x="1094" y="197" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">EXTRACT</text>
+<circle cx="1052" cy="257" r="9" fill="#101827" stroke="#00FF9C"/><circle cx="1052" cy="257" r="2.5" fill="#00FF9C"/><text x="1071" y="261" text-anchor="start" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">SQLITE</text>
+<circle cx="1084" cy="348" r="9" fill="#101827" stroke="#00D9FF"/><circle cx="1084" cy="348" r="2.5" fill="#00D9FF"/><text x="1084" y="377" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">SEARCH</text>
+<circle cx="674" cy="354" r="9" fill="#101827" stroke="#8B5CF6"/><circle cx="674" cy="354" r="2.5" fill="#8B5CF6"/><text x="674" y="383" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">EVIDENCE</text>
+<circle cx="648" cy="235" r="9" fill="#101827" stroke="#94A3B8"/><circle cx="648" cy="235" r="2.5" fill="#94A3B8"/><text x="635" y="239" text-anchor="end" font-family="ui-monospace, Menlo, monospace" font-size="10" letter-spacing="1" fill="#94A3B8">NORMALIZE</text>
+</svg>
