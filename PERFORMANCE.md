@@ -1,4 +1,7 @@
-# Performance and reliability — Phase F
+# Performance and reliability
+
+The Phase F measurements below are historical schema-2 observations. Current
+research-engine schema-3 measurements and commands follow at the end.
 
 SpiderDeck remains sequential and local-first. This phase measures existing work,
 removes repeated allocations/computation, and fixes bounded-input behavior. It
@@ -138,3 +141,134 @@ not a universal large-document memory bound.
 Search, export ordering, SQL parameterization, rollback, schema handling, access
 restrictions and the network destination/rate policies remain unchanged. No new
 index/migration or concurrency was introduced without a measured need.
+
+
+## Research-engine measurements — schema 3
+
+Environment: macOS arm64, Python 3.13.4, SQLite 3.50.1. One fresh-process
+observation with 1,000 synthetic records; actions include `tracemalloc`, so times
+are traced diagnostics, not uninstrumented throughput claims. Input/setup memory
+already alive at each action boundary is excluded from Python allocation peaks.
+Process RSS includes setup/native allocations and earlier actions. No live-site
+latency, DNS/TLS throughput, native-panel rendering or default-browser timing is
+claimed. Tests separately exercise real loopback TLS/certificate/304 behavior.
+
+Reproduce (generates private temporary workloads and a new private report only):
+
+```zsh
+python -m benchmarks.research --records 1000 --output-dir output
+python -m benchmarks.run --rows 1000 --repeats 1 --output-dir output
+```
+
+The research benchmark accepts 1–2,000 records. It verifies project association,
+exports, changed versions and exact copies before reporting success. Workloads
+never open the user's existing SQLite database; scratch files are removed and
+reports retained. It adds no production worker pool. The legacy benchmark's
+fresh-worker isolation and bounded options remain available.
+
+Report: `output/research-performance-bf7034150c1149c180658db2031c3509.json`.
+
+| Traced action | Wall seconds | Python allocation peak (MiB) |
+| --- | ---: | ---: |
+| Create project | 0.0013 | 0.013 |
+| Extract 1,000 JSON records | 0.0650 | 1.482 |
+| Score 1,000 records | 0.1995 | 0.792 |
+| First project ingestion | 0.6031 | 2.084 |
+| Unchanged project reimport | 0.5319 | 1.899 |
+| Preserve 1,000 new content versions | 0.6321 | 1.934 |
+| Link 1,000 cross-source exact copies | 0.6841 | 1.900 |
+| Literal project search, first 20 | 0.0089 | 0.143 |
+| FTS project search, first 20 | 0.0059 | 0.137 |
+| Markdown export, 1,000 records | 0.2984 | 0.049 |
+| JSON export, 1,000 records | 0.2274 | 0.245 |
+| CSV export, 1,000 records | 0.1192 | 0.172 |
+| Offline seed + robots fixture (cold HTML import) | 0.8487 | 6.233 |
+
+Observed process RSS high-water: **50.27 MiB**.
+The final synthetic database includes 1,000 initial records, 1,000 changed versions
+and 1,000 exact copies referencing retained payloads. It occupied
+**11.05 MiB**, including indexes/structures/assessments;
+its raw text/fields columns contained 391,120 characters
+including copy placeholders. This is not a maximum application memory/storage bound.
+
+Before adding the location index/profile normalization, the same 1,000-record
+traced development workload observed reimport at 0.7327 s and changed-version
+insertion at 0.6772 s (`research-performance-63e98b68bcd24c5aa804518b8bc00d57.json`).
+After changes, those actions measured 0.5319 s
+and 0.6321 s. These are single development
+observations across several changes, not isolated-index causal evidence or a
+statistical/general speedup claim. Query plans independently confirm use of
+`project_record_score` for ranked pagination and the covering `records_location`
+index for source/type/location version lookup.
+
+Literal search and FTS have different semantics, so their times are not a claim
+that one is always better. FTS is runtime-checked, contentless and optional;
+literal NFC/casefolded search remains default. Date and reverse-association
+indexes support project filters without indexing every project-specific payload.
+Assessment profiles are fingerprinted once, new exact payload copies share
+canonical data, and original stored rows are not rewritten. No WAL or automatic
+VACUUM was introduced: serial operation and no measured benefit do not justify
+new sidecar/write behavior. Legacy duplicates/derived source structures are not
+physically compacted. Reassessment is bounded by record pages, not a global
+all-record Python list; exports hold one read snapshot across project metadata,
+profiles and findings, even when another WAL writer commits.
+
+The legacy 11-workload benchmark also ran successfully with 1,000 rows and one
+repeat in `output/performance-37dd078ed15c4e02aaeddb42d61feed4/report.json`.
+Its uninstrumented observations included CSV extraction 0.0176 s, first save
+0.0232 s, unchanged save 0.0107 s, search 0.0114 s, JSON export 0.0349 s, CSV export
+0.0353 s, warm supervisor ranking 0.0517 s, cold ranking 1.4237 s and startup
+0.1957 s. These are observations of existing workloads, not improvements over
+the older 5,000-row table above.
+
+## Relevance evaluation (authored synthetic judgments only)
+
+`tests/fixtures/research_judgments.json` contains six explicitly authored examples
+and their manual labels. The rule requires both phishing detection and a
+WebAssembly implementation. There are two relevant examples; adjacent-only,
+excluded/gaming, unrelated and empty examples are negative under that rule.
+This is not real publication data, expert external ground truth or a held-out
+claim about general research accuracy.
+
+The benchmark actually computed Precision@3 = **0.6667**,
+Recall@3 = **1.0000** and NDCG@3 = **1.0000**.
+The first two results were the two labeled relevant examples. One adjacent
+negative appears in the top three; lexical relevance does not establish
+source quality or semantic correctness. DCG uses binary gains discounted by
+`log2(rank+1)` and normalizes by the ideal ordering; precision divides by K.
+The fixture hash is `4fbfbb76be5e39c930a0178f1d983407e5b8e4cb064a793bc59d84f215035829`. No general relevance-accuracy number
+or fabricated real-world evaluation is reported.
+
+
+### Explicit TF-IDF comparison
+
+```zsh
+python -m benchmarks.research --records 1000 --output-dir output --compare-tfidf
+```
+
+This optional comparator uses the already-installed scikit-learn library, fitted
+only to the query plus six authored examples. It does not alter the production
+scorer or fit a growing crawl corpus. In the recorded experiment
+`output/research-performance-e85997cf434c4db683418758023024b8.json`, unigram TF-IDF
+cosine yielded Precision@3 0.6667, Recall@3 1.0000,
+and NDCG@3 0.9197. It ranked the adjacent negative second and one
+relevant example third. The default heuristic ranked the two relevant examples
+first on this fixture. This small authored fixture does not establish general
+superiority; additional independently labeled research data is needed.
+
+The traced cold comparison (imports plus fitting/ranking) took 2.7155 s
+and peaked at 66.17 MiB of Python allocations. Whole-process
+RSS high-water reached 191.45 MiB, including other workload
+setup/native libraries. These are cold-run observations, not incremental native
+memory or universal complexity bounds. The default topic scorer stays fixed and
+page-independent as new pages arrive; thresholds do not shift with corpus IDF.
+The existing bounded batch supervisor ranker continues to use TF-IDF unchanged.
+
+## Final verification observation
+
+The final 1,000-record traced run is
+`output/research-performance-e59e970a30634556aee917c468ecf361.json`.
+It measured scoring 0.1981 s, first ingestion 0.6135 s, first 20 literal
+search results 0.0089 s, JSON export 0.2129 s, and process RSS high-water
+52.77 MiB. Run-to-run variation applies; these are synthetic observations,
+not live-network latency or a guaranteed memory ceiling.

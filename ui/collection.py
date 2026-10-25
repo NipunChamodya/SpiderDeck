@@ -49,7 +49,7 @@ def _follow_up(store: RecordStore, scope: str) -> None:
 
 
 def run(config: CrawlConfig, get_store: Callable[[], RecordStore], *,
-        config_path: Path | None = None, output_dir: Path | None = None) -> None:
+        config_path: Path | None = None, output_dir: Path | None = None, project=None) -> None:
     collector = None
     try:
         requested = menu.prompt_url('Complete public website URL (https://...; blank cancels):')
@@ -102,10 +102,25 @@ def run(config: CrawlConfig, get_store: Callable[[], RecordStore], *,
         # Preserve audit-before-network without initializing SQLite during checks.
         root = output_directory(output_dir) if output_dir is not None else get_store().root
         audit_name = f'crawl-audit-{uuid4().hex}.json'
-        saved = duplicates = 0
+        api = cache = profile = None
+        started_at=None
+        if project is not None:
+            from research.storage import ProjectStore
+            from research.cache import ResearchCache
+            from research.relevance import ResearchProfile
+            api = ProjectStore(get_store())
+            project = api.get(project.project_id)
+            if project.archived:
+                print('Unarchive this project before collection.'); return
+            profile, cache = ResearchProfile(project), ResearchCache(api.records)
+            print(f'Research: {terminal_text(project.title,300)}; mode: {project.mode}; threshold: {profile.threshold:g}/100 (heuristic).')
+        saved = duplicates = updated_records = content_duplicates = 0
         store = None
         with new_output_text(root, audit_name) as audit_file:
-            collector = Collector(approval, run_config, on_stage=_stage_notice)
+            if project is not None:
+                from research.models import now
+                started_at=now()
+            collector = Collector(approval, run_config, on_stage=_stage_notice, profile=profile, cache=cache)
             try:
                 with operation('Checking access permissions'):
                     report = collector.preflight()
@@ -127,9 +142,13 @@ def run(config: CrawlConfig, get_store: Callable[[], RecordStore], *,
                             with operation('Saving records'):
                                 store = get_store()
                                 for document in report.documents:
-                                    summary = store.save_import(document)
+                                    summary = api.ingest(project,document) if api else store.save_import(document)
+                                    if cache is not None:
+                                        cache.remember(document,report.cache_validators.get(document.source,{}))
                                     saved += summary.inserted
                                     duplicates += summary.duplicates
+                                    content_duplicates += summary.content_duplicates
+                                    if api is not None: updated_records += summary.updated
                         except (StorageError, OSError):
                             report.stop_reason = 'storage_failed'
                             report.event('storage_failed')
@@ -149,6 +168,10 @@ def run(config: CrawlConfig, get_store: Callable[[], RecordStore], *,
                 json.dump(payload, audit_file, ensure_ascii=False, sort_keys=True, indent=2)
                 audit_file.write('\n')
         report = collector.report
+        if api is not None:
+            api.record_run(project.project_id,url,report.stop_reason,{**report.audit(),'new_records':saved,'exact_duplicates':duplicates,'content_duplicates':content_duplicates,'updated_records':updated_records},started_at=started_at)
+            print(f'Pages visited: {report.pages_visited}; relevant: {report.relevant_pages}; review: {report.review_pages}; low relevance: {report.low_relevance_pages}; unchanged: {report.unchanged_pages}; failed: {report.failed_pages}.')
+            print(f'New records: {saved}; new versions: {updated_records}; existing identifiers: {duplicates}; exact content matches: {content_duplicates}.')
         print(collection_message(report.stop_reason))
         print(f'Pages collected: {len(report.documents)}; records extracted: {sum(len(doc.records) for doc in report.documents)}; '
               f'links discovered (bounded): {report.links_discovered}.')
@@ -158,7 +181,10 @@ def run(config: CrawlConfig, get_store: Callable[[], RecordStore], *,
         print(f'Audit saved as {audit_name} under output. Earlier accepted pages can survive a later restriction.')
         if store is not None:
             print('Database: ' + terminal_text(str(store.path), 1000))
-            _follow_up(store, scope)
+            if project is None:
+                _follow_up(store, scope)
+            else:
+                print('Return to the project dashboard to browse, search or export these findings.')
     except CollectionError as exc:
         print(collection_message(exc.code))
     except ConfigWriteError as exc:

@@ -17,6 +17,7 @@ def _answer(value: str | None) -> str:
     return value
 
 MAIN_MENU_CHOICES = [
+    "0) Research projects and focused collection",
     "1) Authorized static web collection",
     "2) Import a local document",
     "3) Browse collected records",

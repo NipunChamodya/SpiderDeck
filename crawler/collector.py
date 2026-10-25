@@ -36,6 +36,13 @@ class CrawlReport:
     links_discovered: int = 0
     skipped_pages: int = 0
     skipped_links: int = 0
+    pages_visited: int = 0
+    relevant_pages: int = 0
+    low_relevance_pages: int = 0
+    unchanged_pages: int = 0
+    failed_pages: int = 0
+    review_pages: int = 0
+    cache_validators: dict[str, dict[str, str]] = field(default_factory=dict)
 
     def event(self, code: str) -> None:
         # Never log bodies, URLs/queries/paths, response headers or exception strings.
@@ -46,7 +53,10 @@ class CrawlReport:
                 "pages_collected": len(self.documents), "stop_reason": audit_code(self.stop_reason),
                 "records_collected": sum(len(doc.records) for doc in self.documents),
                 "links_discovered": self.links_discovered, "skipped_pages": self.skipped_pages,
-                "skipped_links": self.skipped_links, "events": self.events}
+                "skipped_links": self.skipped_links, "events": self.events,
+                "pages_visited": self.pages_visited, "relevant_pages": self.relevant_pages,
+                "low_relevance_pages": self.low_relevance_pages, "unchanged_pages": self.unchanged_pages,
+                "failed_pages": self.failed_pages, "review_pages": self.review_pages}
 
 
 def _restricted_url(url: str) -> None:
@@ -83,7 +93,7 @@ def extract(response: Response, *, max_records: int, max_links: int) -> tuple[Im
     with private_parser_diagnostics() as diagnostics:
         document, links = _extract(response, max_records=max_records, max_links=max_links)
     if diagnostics.count:
-        document = ImportResult(document.source, document.records, [*document.warnings, OMITTED_DIAGNOSTICS])
+        document = ImportResult(document.source, document.records, [*document.warnings, OMITTED_DIAGNOSTICS], details=document.details)
     return document, links
 
 
@@ -132,22 +142,24 @@ def _extract(response: Response, *, max_records: int, max_links: int) -> tuple[I
     if not record.text or (soup.body is not None and not soup.body.get_text(" ", strip=True)):
         raise CollectionError("insufficient_static_text")
     links = []
-    base = soup.find("base", href=True)
-    base_url = urljoin(response.url, str(base["href"])) if base is not None else response.url
     nofollow = any("nofollow" in str(meta.get("content", "")).lower() for meta in soup.find_all("meta")
                    if str(meta.get("name", "")).lower() in {"robots", "spiderdeckbot"})
     if not nofollow:
-        for anchor in soup.find_all("a", href=True, limit=max_links):
-            if "nofollow" not in anchor.get("rel", []):
-                links.append(urljoin(base_url, str(anchor["href"])))
-    return ImportResult(response.url, [record] if record.text else [], []), links
+        from processing.content import discovered_links
+        links=[target for anchor,target in discovered_links(soup,response.url,max_links)
+               if 'nofollow' not in anchor.get('rel',[])]
+    from processing.content import html_structure
+    structure = html_structure(soup, response.url, max_links)
+    structure['traversable_links'] = links
+    details = {record.record_id: structure}
+    return ImportResult(response.url, [record] if record.text else [], [], details=details), links
 
 
 class Collector:
     def __init__(self, approval: TargetApproval, config: CrawlConfig, *, transport=None,
                  clock=time.monotonic, sleep=time.sleep,
                  on_progress: Callable[[int], None] | None = None,
-                 on_stage: Callable[[str], None] | None = None):
+                 on_stage: Callable[[str], None] | None = None, profile=None, cache=None):
         # Revalidate config so mutable configuration cannot disable safety checks.
         self.config = CrawlConfig(**asdict(config))
         self.policy = NetworkPolicy(approval, self.config.allowed_domains)
@@ -163,6 +175,8 @@ class Collector:
         self.used = False
         self.on_progress = on_progress
         self.on_stage = on_stage
+        self.profile = profile
+        self.cache = cache
         self._execution: Generator[None, None, None] | None = None
         self.ready = False
         self._finished = False
@@ -181,7 +195,7 @@ class Collector:
         if wait:
             self.sleep(wait)
 
-    def _request(self, url: str) -> Response:
+    def _request(self, url: str, *, robots: bool = False) -> Response:
         _restricted_url(url)
         retry_after = 0.0
         for attempt in range(self.config.max_retries + 1):
@@ -194,12 +208,14 @@ class Collector:
             if remaining <= 0:
                 raise CollectionError("total_byte_limit")
             self.report.requests += 1
+            headers = self.cache.headers(url) if self.cache is not None and not robots else {}
+            conditional = {'conditional_headers': headers} if headers else {}
             self._stage("Fetching page")
             try:
                 response = self.transport.request(url, self.policy, user_agent=self.config.user_agent,
                     timeout=min(self.config.timeout_seconds, self.deadline - self.clock()),
                     max_bytes=min(self.config.max_response_bytes, remaining, 2 * 1024 * 1024) if self._preflighting
-                              else min(self.config.max_response_bytes, remaining), address_index=attempt)
+                              else min(self.config.max_response_bytes, remaining), address_index=attempt, **conditional)
             except CollectionError as exc:
                 self.last_request = self.clock()
                 if exc.code in {"transport_failed", "request_timeout"} and attempt < self.config.max_retries:
@@ -256,7 +272,7 @@ class Collector:
                     self.report.event("already_visited")
                     return None
                 self.visited.add(current)
-            response = self._request(current)
+            response = self._request(current, robots=robots)
             if response.status in {301, 302, 303, 307, 308}:
                 location = response.headers.get("location")
                 if not location or step >= redirect_limit:
@@ -321,6 +337,7 @@ class Collector:
         return self.report
 
     def _iterate(self) -> Generator[None, None, None]:
+        collecting_pages = False
         self.report.event("target_approved")
         try:
             _restricted_url(self.policy.approval.seed_url)
@@ -339,7 +356,14 @@ class Collector:
                 self.report.event("robots_loaded")
             else:
                 raise CollectionError("robots_unavailable")
-            queue = deque([(self.policy.approval.seed_url, 0)])
+            collecting_pages = True
+            if self.profile is not None:
+                from crawler.frontier import TopicFrontier
+                queue = TopicFrontier(self.config.max_frontier)
+                queue.append((self.policy.approval.seed_url, 0))
+            else:
+                queue = deque([(self.policy.approval.seed_url, 0)])
+            low_hops = {self.policy.approval.seed_url: 0}
             scheduled = {self.policy.approval.seed_url}
             pages = records = 0
             while queue and pages < self.config.max_pages:
@@ -355,16 +379,58 @@ class Collector:
                 if response is None:
                     continue
                 pages += 1
-                if response.status != 200:
-                    raise CollectionError("unexpected_http_status")
+                self.report.pages_visited += 1
                 self._stage("Extracting content")
-                document, links = extract(response, max_records=self.config.max_records - records,
-                                          max_links=self.config.max_frontier + 1)
+                if response.status == 304:
+                    if any(value in response.headers.get('x-robots-tag','').lower() for value in ('none','noindex','noarchive')):
+                        raise CollectionError('page_robots_restriction')
+                    entry = self.cache.get(response.url) if self.cache is not None else None
+                    if entry is None or not entry.headers:
+                        raise CollectionError('cache_validation_failed')
+                    document, links = entry.document, list(entry.links[:self.config.max_frontier + 1])
+                    self.report.unchanged_pages += 1
+                elif response.status == 200:
+                    document, links = extract(response, max_records=self.config.max_records - records,
+                                              max_links=self.config.max_frontier + 1)
+                else:
+                    raise CollectionError("unexpected_http_status")
                 self.report.links_discovered += len(links)
                 records += len(document.records)
                 if records > self.config.max_records:
                     raise CollectionError("record_limit")
-                self.report.documents.append(document)
+                all_records = document.records
+                page_score = 0.0
+                strongly_relevant = False
+                link_context = {}
+                if self.profile is not None:
+                    from processing.content import describe
+                    accepted = []
+                    for record in document.records:
+                        detail = describe(record, document.details.get(record.record_id))
+                        for link in detail['links']:
+                            link_context[link['url']] = link
+                        result = self.profile.score(record.title, detail['cleaned_text'],
+                            tuple(h['text'] if isinstance(h, dict) else h for h in detail['headings']))
+                        strongly_relevant |= result.decision == 'relevant'
+                        page_score = max(page_score, result.score)
+                        if result.decision != 'low relevance':
+                            accepted.append(record)
+                    document = ImportResult(document.source, accepted, document.warnings, details=document.details)
+                if document.records or self.profile is None:
+                    self.report.documents.append(document)
+                    if self.profile is None or strongly_relevant:
+                        self.report.relevant_pages += 1
+                    else:
+                        self.report.review_pages += 1
+                    if len(document.records) == len(all_records):
+                        self.report.cache_validators[document.source] = {
+                            key: value for key, value in response.headers.items() if key in {'etag','last-modified'}}
+                        if response.status == 304:
+                            for name, key in (('If-None-Match','etag'),('If-Modified-Since','last-modified')):
+                                if name in entry.headers:
+                                    self.report.cache_validators[document.source].setdefault(key, entry.headers[name])
+                else:
+                    self.report.low_relevance_pages += 1
                 self.report.event("page_collected")
                 if self.on_progress is not None:
                     self.on_progress(len(self.report.documents))
@@ -376,6 +442,18 @@ class Collector:
                 frontier_full = False
                 self.report.skipped_links += len(links) - len(set(links))
                 ordered_links = sorted(set(links))
+                priorities = {}
+                if self.profile is not None:
+                    for link in ordered_links:
+                        try:
+                            self.policy.check_url(link)
+                        except CollectionError:
+                            priorities[link] = -1
+                            continue
+                        context = link_context.get(link, {})
+                        priorities[link] = self.profile.link_priority(link, context.get('text',''),
+                            context.get('context',''), page_score)
+                    ordered_links.sort(key=lambda link: (-priorities[link], link))
                 for link_index, link in enumerate(ordered_links):
                     try:
                         normalized = self.policy.check_url(link)
@@ -393,7 +471,15 @@ class Collector:
                         frontier_full = True
                         self.report.skipped_links += len(ordered_links) - link_index
                         break
-                    queue.append((normalized, depth + 1))
+                    next_low = 0 if self.profile is None or page_score >= self.profile.threshold else low_hops[url] + 1
+                    if self.profile is not None:
+                        if not self.profile.explore(page_score, next_low, priorities[link]):
+                            self.report.skipped_links += 1
+                            continue
+                        queue.append((normalized, depth + 1), priorities[link])
+                    else:
+                        queue.append((normalized, depth + 1))
+                    low_hops[normalized] = next_low
                     scheduled.add(normalized)
                 if frontier_full:
                     self.report.event("frontier_limit")
@@ -406,6 +492,8 @@ class Collector:
                     event["code"] == "frontier_limit" for event in self.report.events):
                 self.report.stop_reason = "frontier_limit"
         except CollectionError as exc:
+            if collecting_pages and exc.code not in {'request_limit','duration_limit','record_limit','total_byte_limit'}:
+                self.report.failed_pages += 1
             self.report.stop_reason = exc.code
             self.report.event(exc.code)
         except KeyboardInterrupt:

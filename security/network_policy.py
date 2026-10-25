@@ -17,7 +17,7 @@ def canonical_path(value: str) -> str:
 
 
 _AUDIT_CODES = frozenset('''
-access_restriction_detected already_visited ambiguous_path ambiguous_response_headers
+cache_validation_failed access_restriction_detected already_visited ambiguous_path ambiguous_response_headers
 authorization_denied cancelled collection_failed collection_finished collector_already_used
 completed compressed_response_unsupported dns_resolution_failed domain_not_allowlisted
 duration_limit frontier_limit incomplete_response insufficient_static_text

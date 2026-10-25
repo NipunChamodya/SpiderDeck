@@ -1,0 +1,13 @@
+{
+  "provenance": "Authored synthetic fixtures, manually labeled for this task; not real publications or externally validated research ground truth.",
+  "label_rule": "Relevant=1 requires explicit phishing detection and a WebAssembly implementation. Adjacent topics alone are 0. Used to evaluate ordering, not to claim broad accuracy.",
+  "project": {"title": "Client-side phishing detection using WebAssembly", "keywords": ["phishing detection", "WebAssembly"], "excluded": ["gaming"]},
+  "documents": [
+    {"id": "exact", "title": "Phishing detection with WebAssembly", "text": "A client browser runs phishing detection implemented in WebAssembly. Browser security and malicious URL detection.", "relevant": 1},
+    {"id": "implementation", "title": "Browser security prototype", "text": "We implemented phishing detection in WebAssembly for a client-side browser security prototype.", "relevant": 1},
+    {"id": "adjacent", "title": "Phishing detection methods", "text": "Phishing detection with server-side URL classification and email analysis.", "relevant": 0},
+    {"id": "gaming", "title": "WebAssembly gaming", "text": "A gaming browser demonstration mentions phishing detection and WebAssembly, but evaluates gaming performance.", "relevant": 0},
+    {"id": "sport", "title": "University sports", "text": "Student athletics, football schedules, and university recreation.", "relevant": 0},
+    {"id": "empty", "title": "Empty fixture", "text": "", "relevant": 0}
+  ]
+}

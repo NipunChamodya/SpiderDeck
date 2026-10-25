@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import stat
 import unicodedata
 import zipfile
@@ -63,8 +64,8 @@ def import_document(requested: str | Path, config: ImportConfig | None = None) -
         with private_parser_diagnostics() as diagnostics:
             result = _parse(path, data, config)
         if diagnostics.count:
-            return ImportResult(result.source, result.records, [*result.warnings, OMITTED_DIAGNOSTICS], len(data))
-        return ImportResult(result.source, result.records, result.warnings, len(data))
+            return ImportResult(result.source, result.records, [*result.warnings, OMITTED_DIAGNOSTICS], len(data), result.details)
+        return ImportResult(result.source, result.records, result.warnings, len(data), result.details)
     except DocumentImportError:
         raise
     except OfficeValidationError as exc:
@@ -96,6 +97,7 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
     kind = path.suffix.lower().lstrip(".")
     source = str(path)
     records: list[ExtractedRecord] = []
+    details: dict[str, dict] = {}
     warnings: list[str] = []
     timestamp = datetime.now(timezone.utc)
     total_chars = 0
@@ -166,7 +168,22 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
         try:
             document = Document(io.BytesIO(data))
             for number, paragraph in enumerate(document.paragraphs, 1):
+                before = len(records)
                 add(paragraph.text, {}, {"paragraph": number})
+                if len(records) > before:
+                    headings = []
+                    style = paragraph.style.name if paragraph.style else ''
+                    match = re.fullmatch(r'Heading ([1-6])', style)
+                    if match:
+                        headings = [{'level':int(match[1]), 'text':paragraph.text}]
+                    from docx.opc.constants import CONTENT_TYPE
+                    core = next((part for part in document.part.package.parts
+                                 if part.content_type == CONTENT_TYPE.OPC_CORE_PROPERTIES),None)
+                    properties = core.core_properties if core else None
+                    details[records[-1].record_id] = {'headings':headings,
+                        'document_title':properties.title or None if properties else None,
+                        'author':properties.author or None if properties else None,
+                        'publication_date':properties.created.isoformat() if properties and properties.created else None}
             for number, table in enumerate(document.tables, 1):
                 for row_number, row in enumerate(table.rows, 1):
                     fields = {f"column_{i}": cell.text for i, cell in enumerate(row.cells, 1)}
@@ -200,6 +217,8 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                         page = Page(pdf, raw_page, page_number=number, initial_doctop=doctop)
                         try:
                             text = page.extract_text() or ""
+                            if '\ufffd' in text or len(re.findall(r'\(cid:\d+\)',text)) >= 3:
+                                warnings.append(f'Page {number}: replacement/unmapped glyphs detected; verify extraction against the original. No OCR performed.')
                             if len(text.strip()) < config.min_pdf_text_chars:
                                 warnings.append(f"Page {number}: insufficient extractable text; may be scanned. No OCR performed.")
                             else:
@@ -240,4 +259,4 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
             add(text, {}, {"line_start": 1})
     if not records:
         warnings.append("No usable records found. For scanned PDFs, request an authorized text-based export.")
-    return ImportResult(source, records, warnings)
+    return ImportResult(source, records, warnings, details=details)

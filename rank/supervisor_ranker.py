@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, replace
 from typing import Iterable
 
 from core.config import RankingConfig
+from core.text import tokenize
 from core.models import ExtractedRecord
 from core.storage import canonical_json, content_hash
 from rank.models import IdeaRanking, RankedMatch, ResearchIdea
@@ -14,22 +15,6 @@ from rank.models import IdeaRanking, RankedMatch, ResearchIdea
 
 class RankingError(ValueError):
     pass
-
-
-def tokenize(text: str) -> list[str]:
-    """Keep Unicode combining marks attached to Sinhala/Tamil/English tokens."""
-    tokens: list[str] = []
-    current: list[str] = []
-    for char in unicodedata.normalize("NFC", text).casefold():
-        category = unicodedata.category(char)
-        if category[0] in {"L", "N"} or (category[0] == "M" and current):
-            current.append(char)
-        elif current:
-            tokens.append("".join(current))
-            current.clear()
-    if current:
-        tokens.append("".join(current))
-    return tokens
 
 
 def _column(value: str) -> str:

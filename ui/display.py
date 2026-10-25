@@ -35,7 +35,7 @@ def use_options(value: DisplayOptions) -> Iterator[None]:
 
 
 def terminal_text(value: str, max_chars: int = 160) -> str:
-    return "".join(char if not unicodedata.category(char).startswith("C") else " "
+    return "".join(char if char in {"\u200c","\u200d"} or not unicodedata.category(char).startswith("C") else " "
                    for char in str(value)[:max_chars])
 
 

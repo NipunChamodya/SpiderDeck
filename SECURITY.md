@@ -426,3 +426,120 @@ vulnerabilities. Tests mock native panel/browser interactions; visual macOS
 acceptance checks remain unperformed. The preexisting parser CPU/RAM, OS DNS,
 trusted-routing, same-user filesystem and known-advisory audit limits still apply.
 Configuration locking uses POSIX `flock`; Windows support is not established.
+
+## Research-engine extension: schema 3 and focused collection
+
+The research feature reuses the existing pinned transport, robots handling,
+resource budgets, static restriction checks, parser diagnostic guard, filesystem
+writers and per-run authorization prompts. Topic text and page content cannot
+approve hosts, write configuration, add headers or change network policy. Main
+menu 0 adds project workflows without changing legacy shortcuts. Project web
+collection is also disabled when the startup self-check fails. Each additional
+seed has its own complete approval/preflight/start cycle and bounded run.
+
+The focused heap stores at most the configured frontier, with canonical URL
+deduplication and deterministic priority/depth/URL ties. Low-relevance exploration
+is limited by mode plus the unchanged page/depth/request/time/byte/record budgets.
+All fetched records, including rejected pages, consume those processing budgets.
+Large scoring inputs are visibly retained for manual review, not asserted to be
+strong matches. Relevance is lexical and heuristic; it grants no access rights,
+source credibility, comprehensive coverage or peer-review status. Coverage counts
+record matches, not independent studies, and can include exact copies.
+
+HTML restrictions are checked on full visible text/metadata before main-region
+selection. Structured content is derived as data, with aggregate text/count
+budgets. Oversized base/href URLs cannot expand into an unbounded link list:
+individual URLs are capped at 4096 characters, candidates at 10000 and aggregate
+URL characters at two million, or stricter configured discovery bounds. Rejected
+links grant no alternate destination. Nested paragraph/table previews share a
+500000-character budget. The complete extracted text remains stored for accepted
+records; raw HTML, scripts, macros and original document binaries are not executed
+or copied into the database. Exact paragraph repetitions are reported, not removed.
+Whitespace/NFC/main-region transformations are recorded. Sinhala/Tamil marks and
+ZWJ/ZWNJ are preserved; terminal/bidi controls are omitted from readable views.
+PDF replacement/unmapped glyph warnings do not claim that unflagged text is correct.
+Missing DOCX core properties are not synthesized as source evidence.
+
+Incremental collection accepts only If-None-Match/If-Modified-Since headers with
+bounded printable ASCII values and no newline/control characters. Header validation
+happens before DNS. No arbitrary request headers, credentials or cookies can enter
+this path. Validators are keyed by the exact normalized URL and reference complete
+persisted records. robots.txt is always requested afresh without cached validators.
+Each conditional request still validates the complete DNS set, pins its destination,
+verifies TLS, checks redirects, rate limits and budgets. Unsolicited/invalid 304s
+fail closed. Cached traversal preserves nofollow, and response X-Robots restrictions
+can block reuse. Cached evidence is rescored for the active project. Low-relevance
+or partially retained pages are not cache entries. Quick Crawl stays uncached.
+The cache is not evidence that permission remains granted: user authorization and
+the supported network/access checks still apply on every run.
+
+Schema 1/2 upgrades first validate the recognized old schema, then create a unique
+0600 SQLite-backup snapshot under the owned output directory. Backup integrity and
+record/import counts are checked. The migration is transactional; failed DDL/version
+updates roll back rather than recreate the database. A read snapshot coordinates
+backup/DDL; a conflicting upgrade can fail safely and must be retried. Migration
+backups can require space comparable to the current database. Existing records,
+IDs, timestamps, ideas and manifests are not rewritten. Older app versions refuse
+schema 3; use the stopped-database recovery procedure in MANUAL_TESTING.md.
+
+Projects link shared records through foreign keys. New exact content copies keep
+their own provenance but refer to a canonical retained payload; full payload/type
+comparison guards content-hash collisions. Effective record reads resolve those
+references through static parameterized queries. Existing duplicate rows are not
+compacted. FK and canonical-reference checks detect missing/chained references at
+open; user-supplied databases are still unsupported. The app never deletes raw
+records or canonical payloads. Explicit project deletion removes associations and
+unreferenced assessment profiles, detaches collection history and retains shared
+sources/records/files. It does not erase prior exports or provide secure deletion.
+
+Assessment profiles are stored once per fingerprint. FTS5 is runtime-optional and
+contentless, mapped to record IDs and maintained in the same import transaction.
+It needs no trigger or persistent view. Literal Unicode search remains the default;
+FTS queries are quoted as data, never arbitrary SQL/FTS operators. Foreign keys,
+parameterization and executable-schema rejection remain enabled. No WAL, automatic
+VACUUM or background indexing worker was added. Database/cache/export data remains
+plaintext; ownership/0600 permissions and account/FileVault protections matter.
+
+History stores fixed statuses and allowlisted aggregate counts, not header values,
+page bodies, sensitive query parameters or raw exception strings. Source attribution
+in the research database intentionally contains the user-chosen path/approved URL;
+that is research data rather than diagnostic output. Source classifications are
+unknown unless user-supplied, explicitly unverified evidence is recorded. Source
+metadata is a source claim, not a citation verification service.
+
+Project exports stream a SQLite read snapshot. JSON includes original/cleaned text,
+structure, explanations and assessment profiles; it can contain personal research
+data and should be shared deliberately. CSV quotes cells and neutralizes formulas,
+including control/format-prefixed/fullwidth introducers. Markdown fences content
+with a delimiter longer than any embedded backticks, escapes metadata markup and
+omits terminal/bidi controls from readable output while retaining script joiners.
+It does not generate summaries or execute extracted code.
+
+Replacing an export requires explicit confirmation. Only an owned, private regular
+file without hardlinks/symlinks is replaceable; a complete private backup is kept
+before atomic replacement. Changes observed during writing abort replacement.
+Trusted ancestors and cooperative same-user processes remain required: the final
+check/rename is not an OS compare-and-swap against a hostile same-user process.
+A failed export never silently discards project associations. Export filters are
+explicit, counts are reported, and existing global exports keep their no-overwrite
+behavior.
+
+Remaining limitations are unchanged: this is not a hard CPU/RAM/DNS/OS sandbox,
+certificate revocation service, authenticated/browser collector, independent
+penetration test, semantic understanding system or secure-erasure tool. The new
+source/score views and native-picker path have automated coverage, but visual
+macOS acceptance remains manual. Synthetic relevance judgments and offline
+transport benchmarks do not establish real-world relevance accuracy or internet
+crawl throughput. No runtime dependency or remote AI service was introduced.
+
+
+Migration and replacement backups are written privately to temporary names and
+published only after their copy/validation step completes. A hard process crash
+can leave private pending files; those are not trusted published backups. A
+migration backup uses bounded SQLite page steps and a 120-second progress budget
+(OS I/O stalls still have the documented native timing limits). Existing supervisor
+idea counts are verified along with records/manifests. Project metadata, assessment
+profiles and exported findings are read from one SQLite snapshot, including when
+a legitimate WAL writer commits concurrently. Caller-side export filesystem errors
+remain distinguishable from database failures so an existing filename cannot hide
+or skip the explicit replacement confirmation.

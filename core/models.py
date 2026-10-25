@@ -1,7 +1,7 @@
 """Normalized, JSON-compatible local import records."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -29,3 +29,4 @@ class ImportResult:
     records: list[ExtractedRecord]
     warnings: list[str]
     size_bytes: int | None = None
+    details: dict[str, dict] = field(default_factory=dict)

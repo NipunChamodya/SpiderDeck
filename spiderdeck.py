@@ -149,7 +149,21 @@ def _run_menu(args: argparse.Namespace, config: AppConfig) -> None:
     while True:
         choice = menu.main_menu()
 
-        if choice.startswith("1"):
+        if choice.startswith("0"):
+            if args.dry_run:
+                print('Dry run: projects and database left untouched.')
+                continue
+            from core.config import CONFIG_PATH
+            from ui import research
+            selected = getattr(args,'config',None)
+            try:
+                research.run(config,get_store,Path(selected).expanduser() if selected else CONFIG_PATH,ROOT,security_ok=security_ok)
+            except menu.PromptCancelled:
+                print('Project workflow cancelled. Existing research remains saved.')
+            except (StorageError,OSError,ValueError):
+                print('Research database unavailable. Check output permissions, disk space and backups; existing evidence was not replaced.')
+
+        elif choice.startswith("1"):
             if args.dry_run:
                 print("Dry run: no web requests or database writes.")
                 continue

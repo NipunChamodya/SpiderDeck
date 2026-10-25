@@ -105,7 +105,13 @@ class _PinnedConnection(http.client.HTTPConnection):
 
 class PinnedTransport:
     def request(self, url: str, policy: NetworkPolicy, *, user_agent: str,
-                timeout: float, max_bytes: int, address_index: int = 0) -> Response:
+                timeout: float, max_bytes: int, address_index: int = 0,
+                conditional_headers: dict[str, str] | None = None) -> Response:
+        from research.cache import validator
+        conditional_headers = conditional_headers or {}
+        if any(name not in {'If-None-Match', 'If-Modified-Since'} or validator(value) != value
+               for name, value in conditional_headers.items()):
+            raise CollectionError('cache_validation_failed')
         started = time.monotonic()
         deadline = started + timeout
         normalized, addresses = policy.resolve(url)
@@ -129,14 +135,16 @@ class PinnedTransport:
             connection.request("GET", parsed.path, headers={"User-Agent": user_agent,
                 "Host": parsed.hostname,
                 "Accept": "text/html, application/json, text/plain;q=0.8",
-                "Accept-Encoding": "identity", "Connection": "close"})
+                "Accept-Encoding": "identity", "Connection": "close", **conditional_headers})
             response = connection.getresponse()
             headers: dict[str, str] = {}
             for key, value in response.getheaders():
                 key = key.lower()
-                if key in headers and key in {"location", "content-type", "content-length", "content-encoding", "transfer-encoding"}:
+                if key in headers and key in {"location", "content-type", "content-length", "content-encoding", "transfer-encoding", "etag", "last-modified"}:
                     raise CollectionError("ambiguous_response_headers")
                 headers[key] = value
+            if response.status == 304 and not conditional_headers:
+                raise CollectionError('cache_validation_failed')
             if response.status != 200:
                 return Response(normalized, response.status, headers, b"")
             if ("content-length" in headers and "transfer-encoding" in headers

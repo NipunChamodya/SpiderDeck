@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import unicodedata
 from pathlib import Path
 from typing import Iterable
 
@@ -17,6 +18,9 @@ CSV_COLUMNS = ("record_id", "source", "source_type", "title", "text", "fields",
 def spreadsheet_safe(value: str) -> str:
     """Prefix dangerous cells, including formulas concealed behind whitespace."""
     stripped = value.lstrip()
+    while stripped and (stripped[0].isspace() or unicodedata.category(stripped[0]).startswith('C')):
+        stripped = stripped[1:]
+    stripped = unicodedata.normalize('NFKC',stripped[:1]) + stripped[1:]
     if value.startswith(("\t", "\r", "\n")) or stripped.startswith(("=", "+", "-", "@")):
         return "'" + value
     return value

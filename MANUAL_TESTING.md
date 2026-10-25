@@ -202,3 +202,136 @@ known vulnerabilities. This does not mark any native-dialog/browser/manual step
 above as performed. The fallback follows Apple's documented
 [choose-file dialog interface](https://developer.apple.com/library/archive/documentation/LanguagesUtilities/Conceptual/MacAutomationScriptingGuide/PromptforaFileorFolder.html);
 its real appearance/focus still needs testing on your macOS installation.
+
+## 8. Research projects and focused evidence
+
+These are additional manual instructions, not a claim of completed visual tests.
+Existing menu numbers are preserved: **0 opens research projects; 8 exits**.
+
+1. Launch from Terminal:
+
+   ```zsh
+   source .venv/bin/activate
+   python spiderdeck.py
+   ```
+
+   For isolated acceptance, reuse the private scratch configuration in section 1.
+   Do not edit or replace your real database for testing.
+2. Choose **0 → Create project**. Enter a research title, optional description,
+   reviewed comma-separated keywords and excluded topics. Suggestions are literal
+   title words, not verified concepts. Select Balanced and confirm creation.
+3. Expect a dashboard showing actual source/record/relevance/duplicate/failure
+   counts, creation/modification times and coverage counts. A new project starts
+   empty. Strong coverage means five matched records, not comprehensive knowledge.
+4. Choose **Import documents** and select a self-created, on-topic file through the
+   native panel. Verify linked/skipped counts. A deliberately unrelated sample can
+   be skipped; Quick Import in main menu 2 remains available without topic filtering.
+5. Choose **Browse evidence**, select a record and verify title/source/type, page or
+   row reference when available, heuristic relevance, matched/missing concepts,
+   explanation and extraction warnings. Read another content page if offered.
+   Optional original extracted text must remain available. No summary is fabricated.
+6. Set a source category only with a meaningful evidence note. Verify it is labeled
+   user-supplied/unverified. Never mark peer review merely because a hostname looks
+   academic. Check author/publication date only when the source actually supplies it.
+7. **Search project**: try a literal keyword, Sinhala/Tamil text, source/type filter,
+   UTC association/check date range and different sort orders. Check matching
+   excerpts against stored original/cleaned text. Missing queries should show no
+   results. Search settings can opt into FTS token/phrase matching if supported;
+   literal mode retains substring behavior and is preferable for exact Unicode text.
+8. **Export findings**: enter a filename without an extension, select Markdown,
+   decline filters initially and inspect the result. Repeat with JSON and CSV.
+   Test an explicit filtered export. Counts must reflect selected records; JSON
+   includes original text/structure/assessment profiles. Do not share personal data
+   unintentionally. Readable Markdown fences untrusted text rather than executing it.
+9. Retry an existing project export name: decline replacement and verify it remains
+   intact. Then explicitly consent on a disposable private export: a backup should
+   remain beside the new export. Symlink/hardlink/unsafe names must not be replaced.
+10. **Edit research settings**: rename, edit description/terms/exclusions and change
+    mode. Try Strict/Balanced/Discovery and threshold validation. Old assessments
+    should be identified as stale; **Reassess stored evidence** should refresh them
+    without deleting records that are now low relevance. Scores are not probabilities.
+11. **Archive / unarchive**: an archived project should not accept collection/imports.
+    Open archived projects from the project list to inspect or unarchive them.
+12. Create a second project and import the same evidence. Both projects should see
+    their own assessments over shared records. Delete only a disposable project by
+    typing `DELETE` and confirming. Other projects, raw records and original files
+    must remain. History is detached, not erased; this is not secure deletion.
+
+### Focused web collection and incremental checks
+
+1. In a project choose **Collect authorized websites**. Use only a static site you
+   own or have explicit automated-collection permission for. Expect the same
+   hostname, access-check, browser and separate collection-start confirmations.
+2. On your controlled site, provide an on-topic page linking to both topic research
+   and sports/contact/navigation pages. Verify promising pages are prioritized.
+   Strict requires a relevant seed, Balanced allows one low-relevance navigation
+   hop, Discovery allows two, all within the configured depth/page/request limits.
+3. Add another seed only through its own approval cycle. A link to a different host
+   must never approve it automatically. Robots denials, redirects outside origin,
+   invalid TLS, private DNS and access failures must still stop safely.
+4. Recollect an authorized resource that supports ETag/Last-Modified. The second
+   run may report an unchanged page on 304, rescore/reassociate cached evidence and
+   save no new record IDs. robots and connection checks still run. If the server
+   does not supply valid validators, an ordinary bounded download is expected.
+5. Change that controlled resource's content and validators. Verify a new content
+   version is retained alongside the old evidence, not overwritten. New versions
+   mean changed content at the same source/type/location, not just a later timestamp.
+6. Review collection history and counters. Unchanged is a subset of relevant/low/
+   review outcomes, not an extra mutually exclusive page category. Exact content
+   copies can count toward coverage; check sources for independence yourself.
+7. Cancel preflight/start and during collection. Check no unapproved page was saved,
+   accepted earlier evidence remains, and history/audits contain aggregate counts.
+   Never bypass Google viewer restrictions, login, CAPTCHA or robots for this test.
+
+## 9. Database migration and stopped-backup recovery
+
+1. Before upgrading, stop SpiderDeck and keep your own backup if desired. Opening
+   a data workflow on a recognized schema-1/2 database creates a private
+   `migration-v1-*.sqlite3` or `migration-v2-*.sqlite3` snapshot under output before
+   migration. Verify that file exists after the first data workflow. Fresh databases
+   start at schema 3 and require no pre-migration snapshot.
+2. Verify old browse/search/export and supervisor idea/ranking workflows still work.
+   Do not test by altering `PRAGMA user_version` on your real database. Automated
+   fixtures test real old schema layouts and interrupted migration rollback.
+3. Raw SQL readers must understand new `record_copies` references. The Python
+   `RecordStore.search/iter_records` APIs return full effective content. Historical
+   rows are unchanged; new copies may have placeholder text/fields in raw SQL.
+4. If recovery is needed, stop every SpiderDeck process first. Preserve the failed
+   database and its sidecars for diagnosis; do not overwrite/delete your only copy.
+   Create a separate private recovery directory, copy a trusted migration backup
+   there as `spiderdeck.sqlite3` with private permissions, and point a separate TOML
+   output configuration there. For example, replacing the backup argument with
+   your actual trusted stopped-backup path:
+
+   ```zsh
+   SPIDERDECK_RECOVERY_DIR="$(mktemp -d)"
+   cp -p "/absolute/path/to/trusted/migration-v2-BACKUP.sqlite3" "$SPIDERDECK_RECOVERY_DIR/spiderdeck.sqlite3"
+   python -c 'import json,pathlib,sys; p=pathlib.Path(sys.argv[1]); (p/"recovery.toml").write_text("[output]\ndir="+json.dumps(str(p))+"\n",encoding="utf-8")' "$SPIDERDECK_RECOVERY_DIR"
+   python spiderdeck.py --config "$SPIDERDECK_RECOVERY_DIR/recovery.toml"
+   ```
+
+   This opens a separate recovery copy and can migrate it again. It never replaces
+   your original database. An older schema-2 application may read the version-2
+   backup but will refuse schema 3. Keep backups private; they contain source data.
+5. Full disk, locks, corrupt/unknown layouts or reference-integrity errors should
+   produce a safe error, not silently recreate the database. Missing native dialogs
+   still use the headless/path fallback documented earlier.
+
+## 10. Reproduce research benchmarks
+
+```zsh
+python -m pytest -q
+python spiderdeck.py --security-check
+python -m benchmarks.research --records 1000 --output-dir output
+python -m benchmarks.run --rows 1000 --repeats 1 --output-dir output
+python verify.py
+python -m pip check
+python -m pip_audit --local
+```
+
+Reports contain generated fixtures only. The research benchmark includes Python
+allocation tracing and an offline in-memory HTTP fixture, not live network speed.
+It verifies projects, parsing, relevance, insert/reimport/versions/copies, search,
+exports and authored-fixture IR metrics. It does not open your existing database.
+Actual native dialog focus, browser handoff, multilingual font rendering and
+long-session responsiveness still require a person using the target Mac.

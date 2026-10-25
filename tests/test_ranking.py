@@ -241,6 +241,11 @@ def test_saved_idea_lifecycle_is_local_and_non_destructive(store):
 
 def _downgrade_to_v1(store):
     with sqlite3.connect(store.path) as connection:
+        connection.execute('DROP TABLE IF EXISTS research_fts')
+        for table in ('project_records','record_copies','research_fts_map','research_profiles','collection_runs','http_cache','research_details','research_sources','projects'):
+            connection.execute('DROP TABLE '+table)
+        connection.execute('DROP INDEX records_date')
+        connection.execute('DROP INDEX records_location')
         connection.execute('DROP TABLE ideas')
         connection.execute('PRAGMA user_version=1')
 
@@ -261,7 +266,7 @@ def test_v1_migration_preserves_records_and_manifests(store, tmp_path):
     with sqlite3.connect(store.path) as connection:
         assert connection.execute('SELECT * FROM records').fetchall() == before_records
         assert connection.execute('SELECT * FROM imports').fetchall() == before_imports
-        assert connection.execute('PRAGMA user_version').fetchone()[0] == 2
+        assert connection.execute('PRAGMA user_version').fetchone()[0] == 3
 
 
 def test_failed_migration_rolls_back_schema_and_version(store):

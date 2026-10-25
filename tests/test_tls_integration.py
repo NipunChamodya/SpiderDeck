@@ -279,3 +279,35 @@ def test_real_https_preflight_reuses_seed_then_persists(certificates, monkeypatc
         assert store.count() == 1
         assert len(server.requests) == 2
         assert not server.errors
+
+
+def test_real_https_conditional_get_reuses_verified_evidence(certificates,monkeypatch,tmp_path):
+    from core.config import CrawlConfig
+    from core.storage import RecordStore
+    from crawler.collector import Collector
+    from research.models import ResearchProject
+    from research.relevance import ResearchProfile
+    from research.storage import ProjectStore
+    from research.cache import ResearchCache
+    def reply(media,body,extra=b''):
+        return (b'HTTP/1.1 200 OK\r\nContent-Type: '+media+b'\r\nContent-Length: '+str(len(body)).encode()
+                +b'\r\n'+extra+b'Connection: close\r\n\r\n'+body)
+    robots=reply(b'text/plain',b'User-agent: *\nAllow: /')
+    page=reply(b'text/html',b'<h1>Phishing WebAssembly</h1><p>Phishing WebAssembly research</p>',b'ETag: "v1"\r\n')
+    unchanged=b'HTTP/1.1 304 Not Modified\r\nConnection: close\r\n\r\n'
+    with https_server(certificates,responses=[robots,page,robots,unchanged]) as server:
+        local_route(monkeypatch,server,certificates)
+        monkeypatch.setattr(socket,'getaddrinfo',lambda *a,**k:[(socket.AF_INET,socket.SOCK_STREAM,6,'',(PUBLIC,443))])
+        records=RecordStore(tmp_path/'output');api=ProjectStore(records)
+        project=ResearchProject('Phishing WebAssembly',keywords=('phishing','WebAssembly'));api.create(project)
+        cache=ResearchCache(records)
+        config=CrawlConfig(allowed_domains=[HOST],max_pages=1,delay_seconds=.01)
+        def collect():
+            return Collector(approve_target(URL,[HOST],authorized=True),config,profile=ResearchProfile(project),cache=cache).run()
+        first=collect();assert len(first.documents)==1
+        api.ingest(project,first.documents[0]);cache.remember(first.documents[0],first.cache_validators[URL])
+        second=collect();assert second.unchanged_pages==1
+        assert api.ingest(project,second.documents[0]).duplicates==1
+        assert records.count()==1
+        assert b'If-None-Match: "v1"\r\n' in server.requests[-1]
+        assert all(b'Cookie:' not in request and b'Authorization:' not in request for request in server.requests)

@@ -7,6 +7,155 @@ Research ideas and explainable offline supervisor ranking are available.
 Authorized static HTML and public JSON API collection is available after explicit
 per-run target approval. Browser rendering and authenticated sessions are not available.
 
+## Research projects — start here
+
+Launch `python spiderdeck.py`, choose **0) Research projects and focused collection**,
+then **Create project**. Existing shortcuts remain: **1** Quick Crawl, **2** local
+import, **5** supervisor ranking, **8** exit and **9** legacy CSV/JSON export.
+
+1. Enter a research title, optional description, reviewed comma-separated keywords
+   and excluded topics. Literal title-token suggestions are editable and are not
+   inferred scientific facts. Select **Balanced**, **Strict** or **Discovery** and
+   confirm creation. Projects stay entirely local.
+2. In the dashboard choose **Collect authorized websites**. Each starting URL has
+   its own exact-host approval, audited access check and separate start confirmation.
+   Add another seed interactively afterward; no new domain is authorized by relevance.
+   Each seed is a separate bounded run, not an unattended multi-domain crawl.
+3. Or choose **Import documents** and select a file in the native macOS picker.
+   Relevant records and bounded-scoring review candidates are linked to this project;
+   low-relevance records are skipped and reported. Quick import remains unfiltered.
+4. **Browse evidence** or **Search project** opens readable documents with source,
+   location, timestamps, score components/matches/missing terms, quality notices,
+   paginated cleaned text and optional original extracted text. No generated summary
+   or peer-review claim is invented. Set a source category only with a user evidence note.
+5. **Export findings** writes Markdown, structured JSON or predictable-column CSV.
+   Optional keyword/source/type/date filters select the export. A filename without
+   an extension prompts for format. Existing private exports need explicit replacement
+   consent and a private backup; unsafe files are never replaced.
+6. **Edit research settings** changes title, description, terms, exclusions, mode,
+   thresholds or search mode. Existing assessments remain labeled as earlier settings
+   until **Reassess stored evidence** is explicitly chosen. Reassessment preserves
+   all linked/raw evidence, including records that are now low relevance.
+7. Archive/unarchive projects or permanently delete a project with `DELETE` plus a
+   second confirmation. Deletion removes only project metadata/associations and
+   unreferenced assessment profiles. Shared records, source documents, history and
+   exports remain; this is not secure erasure.
+
+### Topic scoring, modes and coverage
+
+Matching is deterministic lexical processing over NFC Unicode with Sinhala/Tamil
+combining marks and script joiners preserved. No translation, embeddings, model
+or API download is required. Reviewed keywords (or literal title suggestions) are
+primary concepts; the description contributes to the cosine component. Phrase
+matching respects Unicode token boundaries.
+
+The score is `100 × (0.15 title coverage + 0.10 heading coverage + 0.45 body concept
+coverage + 0.20 body phrase coverage + 0.10 token-count cosine) − exclusion penalty`,
+clamped to 0–100. Each exclusion match subtracts 25 points, capped at 50.
+Single-token concepts supply phrase coverage when no multi-token concepts exist.
+The overlapping coverage/phrase weights total 0.65 deliberately; they are correlated
+signals, not independent evidence. Scores are normalized **heuristics, not
+probabilities, verified source quality or proof of supervisor suitability**.
+
+- **Strict**, default threshold 60: relevant seeds and promising links only; use an
+  on-topic starting page rather than an unrelated homepage.
+- **Balanced**, threshold 35: prioritizes promising links and allows one consecutive
+  low-relevance navigation hop.
+- **Discovery**, threshold 20: allows two such hops and more adjacent exploration.
+
+Thresholds are per project and configurable, with Strict ≥ Balanced ≥ Discovery.
+Link priority is 45% anchor relevance, 35% URL-path relevance, 10% neighboring
+paragraph/list context and 10% parent relevance. URL terms only influence traversal,
+never establish a page's relevance or authorize its hostname. A heap orders by
+priority, depth and canonical URL; per-run URL dedup/frontier/page/depth limits stay
+in effect. Relevance cannot change robots, TLS, DNS/IP or redirect rules.
+
+At most 200,000 text characters per record are scored by default (configurable
+1,000–2,000,000). Larger records are explicitly marked **review**, not confidently
+classified; they remain linked for inspection. Coverage counts stored matched
+concepts: 0 Missing, 1 Limited, 2–4 Moderate, 5+ Strong. These labels count records,
+including exact copies, and do not establish independent evidence or comprehensive
+research coverage. Stale assessments are identified after edits.
+
+The authored synthetic judgments in `tests/fixtures/research_judgments.json`
+require explicit phishing detection plus WebAssembly implementation. Evaluation
+is reproducible through the research benchmark; it is not external real-world
+research ground truth. Precision/recall/NDCG results belong only to that fixture.
+
+### Structured evidence and incremental collection
+
+Original extracted text, fields and location metadata are retained. HTML main
+regions, headings, paragraphs, lists, tables, links and source-declared author,
+publisher/date are available when present. Multiple articles are not reduced to
+just the first. Normalization uses NFC, canonical line breaks, trailing/outer
+whitespace and excess blank-line normalization; internal mathematical whitespace
+is preserved. Exact duplicate paragraphs are counted, not deleted. Main-region
+selection is recorded as a transformation, not applied to the original text.
+Structural previews have independent count/500,000-character budgets; full
+extracted text remains available. Link discovery caps individual URLs at 4,096
+characters, 10,000 candidates and 2 million URL characters per page, or lower
+configured bounds. No raw HTML or original binary file is copied into SQLite.
+
+PDF page references, DOCX paragraphs/headings, spreadsheet rows/headers and JSON
+pointers retain provenance. Replacement/unmapped PDF glyphs generate warnings;
+absence of a warning is not proof of text accuracy. No automatic OCR is used.
+Source-declared metadata is unverified; source category defaults to unknown.
+
+Project collection saves safe ETag/Last-Modified validators referencing complete
+persisted pages. Recollection still gets robots and performs all destination,
+TLS, authorization and limit checks; only then may a legitimate 304 reuse evidence.
+Cached content is rescored for the current project. Cookies/authentication headers
+are never cached or sent. Cached nofollow rules and new response robots restrictions
+remain enforced. Pages with only partially retained JSON records and low-relevance
+pages are not conditionally cached. Quick Crawl keeps its previous uncached behavior.
+
+Summary definitions: pages visited are fetched page responses, relevant/low/review
+are scoring outcomes, unchanged counts 304 reuse (a subset of those outcomes),
+failed pages are terminal page failures, and new versions are new content at an
+existing source/type/location. Counts are not all mutually exclusive. Collection
+history records each seed or document import, with fixed statuses and count-only
+summaries; it contains no cookies, tokens or page bodies.
+
+### Schema 3 and migration safety
+
+Existing schema-1/2 databases get a private `migration-vN-<uuid>.sqlite3` backup
+inside output before a transactional additive migration. Backup integrity and
+record/import counts are verified. Failure rolls back DDL/version; no database is
+silently recreated. Existing records, IDs, timestamps, manifests, supervisor ideas
+and historical duplicates are unchanged. Older code will refuse schema 3; use the
+new application or restore a trusted pre-upgrade copy while SpiderDeck is stopped.
+
+New tables: `projects`, `project_records`, `research_profiles`, `research_details`,
+`research_sources`, `collection_runs`, `http_cache`, `record_copies`, and
+`research_fts_map`; optional `research_fts` uses FTS5. Associations share records;
+assessment profiles are SHA-256-addressed and stored once. New exact payload copies
+reference a retained canonical record after full equality checks, while keeping
+their own source/title/location/time. Different content remains a new version.
+Legacy duplicates are not rewritten/compacted. Derived structures may still repeat
+per source. Near-duplicate detection is not implemented.
+
+Use `RecordStore.search/iter_records` and project APIs to read effective content.
+For new copies, raw SQL against `records.text/fields_json` sees placeholders; join
+`record_copies.canonical_id` back to `records` to resolve payloads. No executable
+view or trigger is added. Foreign keys, canonical-reference integrity, collision
+checks and schema validation remain enforced. WAL/automatic VACUUM are deliberately
+not enabled: the application is serial and no measured benefit justifies their
+extra sidecars/write costs. Copies and indexes are local; backup/export data is
+plaintext protected by ownership/0600 permissions, not database encryption.
+
+Project searches default to the existing Unicode literal-substring behavior.
+Filters include source/type and UTC last-association/check date, with stable
+relevance/date/source ordering and page size 20. Optional per-project FTS mode uses
+quoted token/phrase matching when runtime FTS5 exists, otherwise literal fallback;
+it is not identical to substring search, particularly for multilingual text.
+Contentless FTS uses a record mapping and does not keep another text copy. Exports
+stream a read snapshot; JSON retains original text plus structured views and
+assessment profiles, CSV neutralizes formulas, and Markdown fences untrusted
+content and strips terminal/bidi controls while preserving script joiners.
+
+See [MANUAL_TESTING.md](MANUAL_TESTING.md) for macOS acceptance/recovery steps and
+[PERFORMANCE.md](PERFORMANCE.md) for measured results and reproducible commands.
+
 ## Installation
 
 ```zsh
@@ -199,7 +348,7 @@ Search is casefolded, NFC-normalized literal substring matching over record titl
 and text, with support for Sinhala, Tamil and English. `%`, `_` and SQL syntax
 have no special meaning. All filters are combined with AND. Empty filters select
 all records. Results sort deterministically by source, type and record ID.
-This implementation uses the portable SQLite search path, without FTS5; searches
+Legacy all-record search uses the portable SQLite path, without FTS5; searches
 scan candidate records and may slow down for very large databases.
 
 Reimporting unchanged records skips their stable identifiers and preserves the
@@ -207,12 +356,10 @@ original extraction timestamps. A manifest of source and record IDs detects a
 previously imported record set. Changed records are added; old versions are
 retained. Equal content at another source/location is flagged, not discarded.
 There is no automatic deletion, replacement, version comparison or byte-level
-unchanged-file shortcut: reimports still parse the input. Schema version 2 and
-an application ID identify SpiderDeck databases. Recognized version 1 databases
-receive a transactional, additive migration that creates the ideas table;
-existing records and import manifests are preserved. Unrelated databases, unknown
-versions and existing unrelated files are refused without modification.
-An older Phase B application cannot open the upgraded database; use the current code.
+unchanged-file shortcut: local reimports still parse the input. Schema version 3
+and an application ID identify current databases. Recognized schema-1/2 databases
+receive the backed-up additive research migration described above. Unrelated files
+and unknown versions are refused. Older code refuses the upgraded database.
 
 Exports stream one record at a time, with no database-sized Python list. JSON
 preserves the record schema, nested fields and Unicode. CSV uses a fixed column
@@ -220,8 +367,9 @@ schema with JSON in `fields` and `metadata`, quotes every cell and prefixes risk
 spreadsheet cells with an apostrophe. CSV protection intentionally changes those
 cells; JSON preserves exact content. Do not strip these prefixes before opening
 CSV in a spreadsheet. Export only to a single filename directly under output;
-subdirectories and absolute export paths are rejected. Existing names are never
-overwritten, including symlinks. Failed exports do not publish partial files.
+subdirectories and absolute export paths are rejected. Legacy export names are
+never overwritten; project exports add explicit backed-up replacement of private
+regular files, never symlinks/hardlinks. Failed exports do not publish partial files.
 Exports include local source paths and document text; share them deliberately.
 
 ```python
@@ -676,3 +824,14 @@ integration cases. All 23 security self-check cases, dependency imports,
 `pip check`, installer shell syntax and diff checks passed. `pip-audit --local`
 reported no known vulnerabilities. Native Finder-panel appearance/focus and
 browser handoff remain NOT RUN manually; use the manual-testing guide.
+
+
+Research-engine known limitations: topic matching is lexical (including false
+positives/negatives), not semantic understanding. Source classification and
+publication metadata are not verified. Source metadata-only changes may not create
+a new content identity; original extraction metadata is retained. Near-duplicate
+merging, generated summaries, embeddings, browser/authenticated collection,
+automatic database compaction and Windows support are not implemented. Collection
+is sequential per explicitly approved seed; exports contain all linked records
+unless explicitly filtered, including retained review/low-relevance evidence.
+Native macOS visual acceptance remains documented rather than claimed complete.

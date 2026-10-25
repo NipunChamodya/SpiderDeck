@@ -21,8 +21,9 @@ def choose_document() -> str | None:
         return menu.prompt_path('Local document to import:') or None
 
 
-def run(config: ImportConfig, get_store: Callable[[], RecordStore], *, dry_run: bool = False) -> None:
+def run(config: ImportConfig, get_store: Callable[[], RecordStore], *, dry_run: bool = False, project=None) -> None:
     while True:
+        started_at=None
         try:
             requested = choose_document()
             if not requested:
@@ -31,11 +32,23 @@ def run(config: ImportConfig, get_store: Callable[[], RecordStore], *, dry_run: 
             if dry_run:
                 print('Dry run: no document read.')
                 return
+            started_at=None
+            if project is not None:
+                from research.models import now
+                started_at=now()
             with operation('Extracting local document'):
                 result = import_document(requested, config)
             with operation('Saving normalized records'):
                 store = get_store()
-                summary = store.save_import(result)
+                if project is None:
+                    summary = store.save_import(result)
+                else:
+                    from research.storage import ProjectStore
+                    api = ProjectStore(store)
+                    summary = api.ingest(project,result)
+                    api.record_run(project.project_id,result.source,'completed',{'extracted':len(result.records),
+                        'new_records':summary.inserted,'linked':summary.linked,'low_relevance':summary.skipped},started_at=started_at)
+                    print(f'Project links: {summary.linked}; low-relevance records skipped: {summary.skipped}.')
             print('Filename: ' + terminal_text(Path(result.source).name, 500))
             print(f'Document type: {Path(result.source).suffix.lstrip(".").upper()}; file size: {result.size_bytes} bytes.')
             print(f'Imported {len(result.records)} records; saved {summary.inserted} new records; '
@@ -59,12 +72,22 @@ def run(config: ImportConfig, get_store: Callable[[], RecordStore], *, dry_run: 
                     return
                 if choice == 'Import another document':
                     break
+                if project is not None:
+                    from ui.research import browse
+                    browse(api,project,search=choice=='Search imported content',source=filters.source)
+                    continue
                 records.browse(store, search=choice == 'Search imported content', filters=filters)
         except menu.PromptCancelled:
             print('Import cancelled. Previously committed records remain saved.')
             return
         except DocumentImportError as exc:
             print('Import failed: ' + str(exc))
+            if project is not None:
+                try:
+                    from research.storage import ProjectStore
+                    ProjectStore(get_store()).record_run(project.project_id,'Local document import failure','collection_failed',{'failed_documents':1},started_at=started_at)
+                except (StorageError,OSError):
+                    print('The import failure could not be added to local history.')
             return
         except (StorageError, OSError, UnsafePathError):
             print('Storage failed. Check output permissions, free space and database locks; existing records were preserved.')
