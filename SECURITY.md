@@ -1,8 +1,8 @@
 # Security model and current boundaries
 
-The application handles explicitly selected local regular files. It does not perform
-network collection, render browser content, fetch linked assets, execute macros,
-or run document-supplied commands. No remote AI services are used. Import failures
+The application imports explicitly selected local files and collects approved
+public static HTML/JSON endpoints. It does not render browser content, fetch
+subresources, execute macros or run document-supplied commands. No remote AI services are used. Import failures
 return sanitized messages without document contents. Existing logs are preserved;
 the import menu does not activate the legacy file logger.
 
@@ -49,14 +49,67 @@ re-saving can remove protection. JSON is a lossless data export, not a script.
 Browse/search strips terminal controls from untrusted previews. Import/save errors
 do not write document contents to logs. Existing legacy logs are preserved.
 
-Network collection remains unavailable. URL preflight validation now requires
-an allowlist, rejects userinfo, checks all IPv4/IPv6 DNS results, and fails closed
-on resolution errors. It still has DNS time-of-check/time-of-use weaknesses and
-is not a network transport policy.
-Before enabling web access, require explicit target authorization and allowlisting,
-validate every DNS result and redirect, pin approved destination IPs at transport
-level, and enforce timeouts, robots, rates, content limits and stop conditions.
-Browser interception alone cannot provide a destination-IP guarantee.
+## Phase D: static network boundary
+
+Live HTTP collection uses `security/network_policy.py` and
+`crawler/fetcher.py`, not the legacy preflight URL helper. Each run requires a
+configured exact hostname and an explicit declaration of automated-collection
+permission for one origin. No target is automatically authorized because another
+host, subdomain, port or scheme was approved. Discovered external links are
+ignored; redirects outside the approved origin stop. Browser rendering and
+session/authenticated APIs remain unavailable; interception alone would not
+provide an equivalent destination-IP guarantee.
+
+All DNS answers are validated before choosing a destination. Non-global,
+private, link-local, loopback, multicast, reserved, scoped, IPv4-mapped, 6to4,
+Teredo and non-2000::/3 IPv6 results (including common translation ranges) are
+refused. Mixed safe/unsafe DNS sets fail closed. Hostname-only URLs exclude IP
+literals and alternative numeric representations. Numeric socket connect on
+an explicit address family prevents a hostname re-resolution at connect time.
+The actual peer must match the selected address. Every retry and redirect
+resolves and checks again. Connection reuse, proxies, browser requests and
+unvalidated fallback transports are not enabled.
+
+HTTPS validates the original hostname/certificate chain with a verifying client
+context, TLS >= 1.2 and HTTP/1.1 ALPN. HTTP Host remains the approved hostname;
+the IP is only used for dialing. SSLKEYLOGFILE is deliberately not honored, so
+normal use cannot create an external TLS secret log. Query URLs, userinfo,
+ambiguous encodings/path traversal, nonstandard ports and interactive Google
+Docs/Sheets viewer routes are unsupported. No tokens, cookies or authentication
+headers are collected or reused. Plain HTTP is available only when that origin
+is approved and provides no confidentiality; prefer HTTPS.
+
+The policy assumes trusted OS routing, DNS infrastructure and TLS trust store.
+It cannot prevent a hostile VPN/NAT/router from remapping a public destination
+or control what an authorized public server does internally. OS getaddrinfo
+cannot be reliably interrupted by a Python socket deadline. The per-request
+socket watchdog covers active TCP/TLS/header/body I/O, and scheduling/size limits
+bound normal work, but there is no hard DNS, process CPU or RAM sandbox. Apply
+an OS egress firewall/isolation if a stronger boundary is required. This is not
+a blanket claim of browser or arbitrary-Python network security.
+
+Robots is enforced before pages and on same-origin redirects; response metadata
+robots restrictions are respected conservatively. Rate limits cover robots,
+redirects and retries; blocked/unauthorized/rate-limited responses stop without
+aggressive retries. No scripts/assets/iframes, form actions, browser APIs, OCR,
+accessibility extraction, CAPTCHA solvers or credential/session workarounds are
+used. Restriction detection can produce false positives; an owner export is
+the supported fallback. A public response and an authenticated user are neither
+proof of bulk-extraction permission.
+
+Audit output contains only origin, fixed event codes/timestamps and aggregate
+counts. Bodies, URL paths, queries, headers and exception strings are excluded.
+A private exclusive audit temporary file is reserved before network work and
+published atomically at completion; crashes/disk failures can prevent publication.
+Accepted pages before a later failure may remain saved. A failed or restricted
+page is never imported; earlier valid pages are not silently deleted. Storage
+and audit remain local under output. Raw response headers/bodies only exist in
+bounded memory during processing and are not debug-logged.
+
+Verification uses offline DNS/socket wire fixtures, not live internet targets.
+Tests validate pinning, rebinding, peer checks, TLS context requirements and
+simulated verification failures; they do not constitute a real certificate-chain
+handshake test, live-site penetration test or proof of complete SSRF security.
 
 The self-check is an offline 11-case smoke test, not a network security audit.
 No dependency audit or test result implies complete security. Report dependency

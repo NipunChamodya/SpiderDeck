@@ -6,7 +6,7 @@ from rich.console import Console
 console = Console()
 
 MAIN_MENU_CHOICES = [
-    "1) Crawl a website URL",
+    "1) Authorized static web collection",
     "2) Import a local document",
     "3) Browse collected records",
     "4) Search intelligence database",

@@ -1,9 +1,10 @@
 """
 security/validators.py
 -----------------------
-Every URL and file path SpiderDeck touches passes through here first.
-Nothing in handlers/ or core/ should hit the network or filesystem
-without going through one of these functions.
+Shared path, argument and restriction checks, plus legacy URL preflight.
+Live collection uses security.network_policy and the pinned HTTP transport;
+validate_url alone is not a transport-level SSRF guarantee. Writers also use
+security.filesystem's exclusive file and directory descriptor checks.
 """
 
 from __future__ import annotations

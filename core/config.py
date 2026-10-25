@@ -17,6 +17,35 @@ class CrawlConfig:
     respect_robots_txt: bool = True
     user_agent: str = "SpiderDeckBot/0.1"
     allow_localhost: bool = False
+    timeout_seconds: float = 10.0
+    max_retries: int = 2
+    max_redirects: int = 3
+    max_requests: int = 200
+    max_frontier: int = 1000
+    max_response_bytes: int = 2 * 1024 * 1024
+    max_total_bytes: int = 10 * 1024 * 1024
+    max_records: int = 10000
+    max_duration_seconds: float = 120.0
+
+    def __post_init__(self) -> None:
+        for name in ("max_pages", "max_requests", "max_frontier", "max_response_bytes", "max_total_bytes", "max_records"):
+            if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
+                raise ValueError("Crawl resource limits must be positive integers.")
+        for name in ("max_depth", "max_retries", "max_redirects"):
+            if type(getattr(self, name)) is not int or not 0 <= getattr(self, name) <= 100:
+                raise ValueError("Crawl depth/retry/redirect limits must be integers from 0 to 100.")
+        for name in ("delay_seconds", "timeout_seconds", "max_duration_seconds"):
+            value = getattr(self, name)
+            if type(value) not in (int, float) or not 0 < value <= 3600 or not math.isfinite(value):
+                raise ValueError("Crawl timing values must be finite and positive, up to 3600 seconds.")
+        if (not isinstance(self.allowed_domains, list)
+                or any(not isinstance(domain, str) for domain in self.allowed_domains)):
+            raise ValueError("Crawl domains must be a list of exact hostnames.")
+        if (not isinstance(self.user_agent, str) or not self.user_agent.startswith("SpiderDeckBot/")
+                or len(self.user_agent) > 200 or any(not 32 <= ord(char) < 127 for char in self.user_agent)):
+            raise ValueError("Use an accurate printable SpiderDeckBot/ User-Agent.")
+        if self.respect_robots_txt is not True or self.allow_localhost is not False:
+            raise ValueError("Web collection requires robots handling and prohibits local destinations.")
 
 
 @dataclass

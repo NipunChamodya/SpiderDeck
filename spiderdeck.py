@@ -88,7 +88,8 @@ def run_menu(args: argparse.Namespace) -> None:
     effects.matrix_intro(enabled=fx_enabled)
     effects.glitch_title("S P I D E R D E C K", enabled=fx_enabled)
 
-    if not run_security_check():
+    security_ok = run_security_check()
+    if not security_ok:
         print("\nSecurity self-check failed — refusing to start crawler features.")
         print("You can still read local files, but fix security/validators.py first.")
 
@@ -96,7 +97,17 @@ def run_menu(args: argparse.Namespace) -> None:
         choice = menu.main_menu()
 
         if choice.startswith("1"):
-            print("\nWeb collection is not implemented. Import an authorized local export with option 2.\n")
+            if args.dry_run:
+                print("Dry run: no web requests or database writes.")
+                continue
+            if not security_ok:
+                print("Web collection is disabled because the startup security self-check failed.")
+                continue
+            from ui import collection
+            try:
+                collection.run(config.crawl, get_store)
+            except (StorageError, OSError, ValueError):
+                print("Collection/storage failed. Check configuration, output permissions and disk space; audit may be unavailable.")
 
         elif choice.startswith("2"):
             from handlers.local import DocumentImportError, import_document

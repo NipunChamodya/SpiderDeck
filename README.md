@@ -4,7 +4,8 @@ Local-first research document intelligence for Python 3.13 (tested on macOS).
 SpiderDeck imports authorized local documents without network requests or remote AI.
 Imports persist in SQLite and support browsing, search and CSV/JSON exports.
 Research ideas and explainable offline supervisor ranking are available.
-Website collection is not implemented yet.
+Authorized static HTML and public JSON API collection is available after explicit
+per-run target approval. Browser rendering and authenticated sessions are not available.
 
 ## Installation
 
@@ -81,6 +82,7 @@ permissions rather than changing existing files automatically.
 
 Menu workflows retain arrow-key navigation:
 
+- **1) Authorized static web collection** requires an exact hostname allowlist and explicit per-run approval.
 - **2) Import** commits the complete document in one transaction.
 - **3) Browse** previews 20 records at a time.
 - **4) Search** combines keyword, source-path substring and exact document-type filters.
@@ -133,6 +135,92 @@ API callers choose their output directory explicitly; relative API paths use the
 caller's current directory. For a stopped application, back up the database by
 copying it to a safe location. Do not copy an actively written SQLite file as a
 backup. Database import/restore, encryption and record deletion workflows are not provided.
+
+## Authorized static web collection
+
+This increment supports public HTML/XHTML and explicitly authorized **public JSON
+GET endpoints**. It does not log in, use credentials/cookies, submit forms,
+execute JavaScript, fetch assets/iframes, follow refresh tags or run a browser.
+Authentication alone is not permission for bulk extraction. Obtain appropriate
+permission before collecting anything.
+
+1. Add an **exact hostname** to `[crawl].allowed_domains` in `config.toml`, e.g.
+   `allowed_domains = ["research.example.org"]`. No wildcard/subdomain inheritance
+   or numeric IP targets are accepted.
+2. Choose **1) Authorized static web collection** and enter the URL.
+3. Review the scheme/hostname scope and page/depth limits, then explicitly confirm
+   permission for automated GET requests on that origin. A configured domain alone
+   does not grant approval. Declining makes no DNS, HTTP or database requests.
+4. Accepted pages become `web_html` or `web_json` records in the existing SQLite
+   database. Use browse/search/ranking/export normally afterward.
+
+Approval is for one origin per run, not every host in the configured allowlist.
+Same-origin links/HTTP redirects may be followed; external links are ignored.
+Cross-origin redirects (including HTTP → HTTPS) stop and require a separate run
+with explicit approval. Start directly at the HTTPS URL where possible. HTTP on
+port 80 is supported with explicit approval but does not provide TLS confidentiality;
+HTTPS on port 443 validates the original hostname and certificate chain. Other
+ports, userinfo, query-bearing/signed URLs, ambiguous paths and IP-literal targets
+are deliberately unsupported. Hostnames with public IPv6 DNS records are supported.
+No proxy, environment proxy setting, authentication header or cookie jar is used.
+
+Every HTTP request (including robots, retries and redirect hops) resolves all
+addresses, rejects prohibited/mixed results, and connects to a selected approved
+numeric IP without another DNS lookup. The TCP peer is checked. HTTPS retains the
+hostname for SNI/certificate validation and the HTTP Host header. Retries may
+select another address only after revalidating the complete DNS result set.
+This is implemented with Python's [HTTP client](https://docs.python.org/3.13/library/http.client.html)
+and a verifying [TLS context](https://docs.python.org/3.13/library/ssl.html).
+The legacy `validate_url` helper is not the live network enforcement boundary.
+
+The crawl is sequential. Robots rules are fetched through the same transport
+before pages, then enforced on every page and redirect destination. The parser
+supports merged matching User-Agent groups, longest-match rules, Allow ties,
+`*`/`$` paths, Crawl-delay and Request-rate. A robots 404 permits crawling; access
+failures, unavailable robots, invalid rate directives and unsupported responses fail closed.
+Unknown directives/unparseable lines are ignored; an empty rule file permits paths.
+Path matching follows [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html)
+matching concepts; this collector deliberately narrows allowed URL and redirect scope.
+The larger of the configured delay and robots delay is used. Transient transport
+failures and 502/503/504 get bounded exponential retries; Retry-After is respected
+or collection stops if the requested wait exceeds the run budget. Permission
+failures and 429 stop without retrying. Robots is a technical signal, not legal
+or organizational authorization.
+
+Defaults: 50 pages, depth 2, 1.5 seconds between requests, one concurrent request,
+10 seconds per request, two retries, three redirects per chain, 200 transport
+attempts, 1,000 scheduled URLs, 2 MiB per response, 10 MiB accepted response bodies,
+10,000 records and a 120-second scheduling budget. Robots and retries count toward
+request/byte budgets. Response headers/chunk framing have a 64 KiB cumulative
+line budget. Compressed responses are refused; clients request identity encoding.
+The active socket is closed by a bounded request-deadline watchdog; the watchdog
+is cancelled/joined after each request. There are no persistent worker processes.
+OS DNS lookup itself cannot be interrupted reliably, so this is not a hard wall
+clock/CPU/RAM sandbox. There is no crawl throughput benchmark against live targets.
+
+Collection stops on access restrictions, CAPTCHA/login indicators, export-disabled
+content, Google Docs/Sheets viewer URLs or insufficient static text. It suggests
+an authorized export or officially supported API instead. Restriction heuristics
+are conservative and can reject legitimate pages discussing these terms. The
+collector never performs OCR, accessibility scraping or bypasses access gates.
+JSON endpoints preserve structured items and JSON pointers; malformed/nonfinite
+JSON and unexpected content types are rejected. Text encoding is limited to UTF-8,
+ASCII, ISO-8859-1 and Windows-1252; plain text is accepted only for robots.txt.
+
+Each run publishes a new private `crawl-audit-<id>.json` under output. It records
+origin, fixed event/outcome codes, timestamps and aggregate collection/storage
+counts. It excludes paths, query strings, bodies, response headers, credentials
+and exception details. Audit file access is checked before network activity.
+An abrupt process/OS failure or output-disk failure can prevent final audit
+publication; the UI reports an unavailable audit rather than claiming success.
+Previously accepted pages can be retained when a later page stops the run. Each
+page is stored transactionally; a storage failure can leave earlier pages saved
+and is recorded as `storage_failed`. Existing records/files are never replaced.
+
+All collection tests run offline with mocked DNS and socket wire fixtures. They
+exercise real HTTP parsing/serialization and storage integration, but do not
+claim a real TLS handshake, real remote server interoperability or live-site
+permission. No university website or other live target was contacted in testing.
 
 ## Research ideas and supervisor ranking
 
@@ -281,9 +369,9 @@ values may be absent or stale. DOCX headers, footers, text boxes and nested tabl
 are not imported. HTML is not rendered and Markdown is retained as source text.
 Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
 
-Next: authorized static web collection with transport-level destination policy,
-explicit target approval, robots/rate limits and offline network tests. No network
-collection is enabled by the current menu.
+Next: CLI usability, progress/status and performance review. JavaScript rendering,
+authenticated sessions and broader API support remain deferred until equivalent
+transport-level network policy can be enforced.
 
 The PDF stack is pinned to `pdfplumber==0.11.10` and
 `pdfminer.six==20260107`, addressing the two Phase A audit findings. Importing
@@ -323,3 +411,23 @@ of Python allocations including lazy numerical-library imports. Imported input
 records were allocated before tracing; native allocations and total process RSS
 are excluded. This is a development baseline, not a hard resource bound or an
 accuracy evaluation.
+
+
+## Phase D static-collection verification snapshot
+
+The complete suite passes **262 tests**, including all Phase A/B/C behavior and
+120 additional offline collection/security cases. The 11-case security self-check,
+installed dependency imports, `pip check`, installer shell syntax and diff checks
+pass. The installed-package dependency audit reports no known vulnerabilities.
+No new runtime dependency was introduced and no live collection was performed.
+
+Unit tests cover authorization before DNS, URL/IP bypasses, mixed DNS results,
+IPv6 translation ranges, DNS changes, direct-IP dialing, peer verification,
+TLS context requirements/failures, request deadlines, header/body bounds,
+robots matching/rates, redirects, retries, restriction detection and audit privacy.
+Offline integration uses mocked socket wire responses with actual HTTP parsing,
+SQLite persistence and search, plus menu/audit workflows. Manual code review
+addressed SSLKEYLOGFILE writes, retry-after delays, HTML base links and empty
+script-only pages. This is not a live HTTPS interoperability test or an external
+penetration test. Authenticated/browser collection and unrestricted API URLs
+remain deliberately unavailable.
