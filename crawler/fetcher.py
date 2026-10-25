@@ -48,6 +48,9 @@ class _BoundedResponse(http.client.HTTPResponse):
 class _PinnedConnection(http.client.HTTPConnection):
     def __init__(self, host: str, port: int, address: str, *, timeout: float, tls: bool):
         super().__init__(host, port, timeout=timeout)
+        # HTTPConnection's class-level debug switch prints raw headers to stdout.
+        # Never inherit it, even if an embedding application enables HTTP debug.
+        self.debuglevel = 0
         self.address = address
         self.tls = tls
         self.active_socket = None
@@ -171,12 +174,12 @@ class PinnedTransport:
             return Response(normalized, response.status, headers, body)
         except CollectionError:
             raise
-        except TimeoutError as exc:
-            raise CollectionError("request_timeout") from exc
-        except ssl.SSLError as exc:
-            raise CollectionError("request_timeout" if expired.is_set() else "tls_verification_failed") from exc
-        except (OSError, http.client.HTTPException, ValueError) as exc:
-            raise CollectionError("request_timeout" if expired.is_set() else "transport_failed") from exc
+        except TimeoutError:
+            raise CollectionError("request_timeout") from None
+        except ssl.SSLError:
+            raise CollectionError("request_timeout" if expired.is_set() else "tls_verification_failed") from None
+        except (OSError, http.client.HTTPException, ValueError):
+            raise CollectionError("request_timeout" if expired.is_set() else "transport_failed") from None
         finally:
             timer.cancel()
             timer.join()

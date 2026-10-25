@@ -74,8 +74,8 @@ class RobotsRules:
                         if not 0 <= delay <= 3600:
                             raise ValueError
                         current.delay = max(current.delay, delay)
-                    except (ValueError, ZeroDivisionError, OverflowError) as exc:
-                        raise CollectionError("invalid_robots_rate") from exc
+                    except (ValueError, ZeroDivisionError, OverflowError):
+                        raise CollectionError("invalid_robots_rate") from None
         groups.append(current)
         token = user_agent.split("/", 1)[0].lower()
         def specificity(group: _Group) -> int:

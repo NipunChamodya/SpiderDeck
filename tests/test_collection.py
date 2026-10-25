@@ -748,3 +748,12 @@ def test_watchdog_interrupts_blocked_tls_handshake(sockets, monkeypatch):
             user_agent='SpiderDeckBot/0.1', timeout=0.05, max_bytes=1000)
     assert interrupted.is_set()
     assert made[0].closed
+
+
+def test_http_debug_cannot_print_sensitive_headers(sockets, monkeypatch, capsys):
+    import http.client
+    pending, _ = sockets
+    pending.append(wire(headers=b'Set-Cookie: PRIVATE_COOKIE_SENTINEL\r\n'))
+    monkeypatch.setattr(http.client.HTTPConnection, 'debuglevel', 1)
+    assert request().status == 200
+    assert capsys.readouterr() == ('', '')

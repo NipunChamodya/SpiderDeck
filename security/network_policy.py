@@ -16,11 +16,35 @@ def canonical_path(value: str) -> str:
     return re.sub(r"%[0-9a-fA-F]{2}", replace, encoded)
 
 
+_AUDIT_CODES = frozenset('''
+access_restriction_detected already_visited ambiguous_path ambiguous_response_headers
+authorization_denied cancelled collection_failed collection_finished collector_already_used
+completed compressed_response_unsupported dns_resolution_failed domain_not_allowlisted
+duration_limit frontier_limit incomplete_response insufficient_static_text
+interactive_document_requires_export invalid_approval invalid_content_length
+invalid_dns_address invalid_hostname invalid_retry_after invalid_robots_rate
+invalid_robots_response invalid_scheme_or_host invalid_text_encoding invalid_url
+malformed_json new_origin_requires_approval nonstandard_port page_collected page_limit
+page_robots_restriction peer_address_mismatch prohibited_destination query_urls_unsupported
+rate_limited record_limit redirect redirect_limit redirect_loop request_limit request_timeout
+response_headers_too_large response_too_large retry_after_exceeds_budget retry_limit
+retry_transient_error retry_upstream_unavailable robots_disallow robots_loaded robots_not_found
+robots_rule_too_large robots_unavailable storage_failed target_approval_required target_approved
+tls_verification_failed total_byte_limit transport_failed unexpected_content_type
+unexpected_http_status unsupported_encoding upstream_unavailable userinfo_forbidden
+'''.split())
+
+
+def audit_code(value: str) -> str:
+    """Unknown messages must never become an audit field, even through adapters."""
+    return value if type(value) is str and value in _AUDIT_CODES else 'collection_failed'
+
+
 class CollectionError(ValueError):
     """Only fixed, non-sensitive codes/messages may reach audit logs."""
     def __init__(self, code: str):
-        self.code = code
-        super().__init__(code)
+        self.code = audit_code(code)
+        super().__init__(self.code)
 
 
 def hostname(value: str) -> str:
@@ -40,8 +64,8 @@ def hostname(value: str) -> str:
         else:
             raise ValueError  # Hostname allowlists do not accept numeric IP representations.
         return encoded
-    except (ValueError, UnicodeError) as exc:
-        raise CollectionError("invalid_hostname") from exc
+    except (ValueError, UnicodeError):
+        raise CollectionError("invalid_hostname") from None
 
 
 def normalize_url(url: str) -> str:
@@ -74,10 +98,10 @@ def normalize_url(url: str) -> str:
         if len(normalized) > 4096:
             raise CollectionError("invalid_url")
         return normalized
-    except (ValueError, UnicodeError) as exc:
-        if isinstance(exc, CollectionError):
-            raise
-        raise CollectionError("invalid_url") from exc
+    except CollectionError:
+        raise
+    except (ValueError, UnicodeError):
+        raise CollectionError("invalid_url") from None
 
 
 def origin(url: str) -> str:
@@ -103,8 +127,8 @@ def approve_target(url: str, allowed_domains: list[str], *, authorized: bool) ->
 def public_ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
     try:
         address = ipaddress.ip_address(value)
-    except ValueError as exc:
-        raise CollectionError("invalid_dns_address") from exc
+    except ValueError:
+        raise CollectionError("invalid_dns_address") from None
     if (not address.is_global or address.is_multicast or address.is_reserved
             or (isinstance(address, ipaddress.IPv6Address)
                 and (address.ipv4_mapped is not None or address.sixtofour is not None
@@ -137,8 +161,8 @@ class NetworkPolicy:
         port = 443 if parsed.scheme == "https" else 80
         try:
             answers = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
-        except OSError as exc:
-            raise CollectionError("dns_resolution_failed") from exc
+        except OSError:
+            raise CollectionError("dns_resolution_failed") from None
         if not answers:
             raise CollectionError("dns_resolution_failed")
         addresses: set[str] = set()

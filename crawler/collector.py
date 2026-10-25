@@ -18,8 +18,9 @@ from core.models import ExtractedRecord, ImportResult
 from core.storage import canonical_json
 from crawler.fetcher import PinnedTransport, Response
 from crawler.robots import RobotsRules
-from security.network_policy import CollectionError, NetworkPolicy, TargetApproval
+from security.network_policy import CollectionError, NetworkPolicy, TargetApproval, audit_code
 from security.validators import looks_restricted
+from security.parser_diagnostics import OMITTED_DIAGNOSTICS, private_parser_diagnostics
 
 EXPORT_ADVICE = "Collection stopped. Obtain an authorized export or use an officially supported, authorized API."
 
@@ -35,11 +36,11 @@ class CrawlReport:
 
     def event(self, code: str) -> None:
         # Never log bodies, URLs/queries/paths, response headers or exception strings.
-        self.events.append({"code": code, "at": datetime.now(timezone.utc).isoformat()})
+        self.events.append({"code": audit_code(code), "at": datetime.now(timezone.utc).isoformat()})
 
     def audit(self) -> dict:
         return {"origin": self.origin, "requests": self.requests, "body_bytes": self.total_bytes,
-                "pages_collected": len(self.documents), "stop_reason": self.stop_reason,
+                "pages_collected": len(self.documents), "stop_reason": audit_code(self.stop_reason),
                 "records_collected": sum(len(doc.records) for doc in self.documents), "events": self.events}
 
 
@@ -62,8 +63,8 @@ def _decode(response: Response) -> tuple[str, str]:
         raise CollectionError("unsupported_encoding")
     try:
         return response.body.decode(charset), media
-    except (UnicodeError, LookupError) as exc:
-        raise CollectionError("invalid_text_encoding") from exc
+    except (UnicodeError, LookupError):
+        raise CollectionError("invalid_text_encoding") from None
 
 
 def _record(url: str, kind: str, title: str, text: str, fields: dict, metadata: dict) -> ExtractedRecord:
@@ -74,6 +75,14 @@ def _record(url: str, kind: str, title: str, text: str, fields: dict, metadata: 
 
 
 def extract(response: Response, *, max_records: int, max_links: int) -> tuple[ImportResult, list[str]]:
+    with private_parser_diagnostics() as diagnostics:
+        document, links = _extract(response, max_records=max_records, max_links=max_links)
+    if diagnostics.count:
+        document = ImportResult(document.source, document.records, [*document.warnings, OMITTED_DIAGNOSTICS])
+    return document, links
+
+
+def _extract(response: Response, *, max_records: int, max_links: int) -> tuple[ImportResult, list[str]]:
     text, media = _decode(response)
     if any(value in response.headers.get("x-robots-tag", "").lower() for value in ("noindex", "noarchive", "none")):
         raise CollectionError("page_robots_restriction")
@@ -93,10 +102,10 @@ def extract(response: Response, *, max_records: int, max_links: int) -> tuple[Im
                 rows.append(_record(response.url, "web_json", "Authorized API record", canonical_json(fields),
                                     fields, {"json_pointer": f"/{index}" if isinstance(parsed, list) else ""}))
             return ImportResult(response.url, rows, []), []
-        except (ValueError, TypeError, RecursionError) as exc:
-            if isinstance(exc, CollectionError):
-                raise
-            raise CollectionError("malformed_json") from exc
+        except CollectionError:
+            raise
+        except (ValueError, TypeError, RecursionError):
+            raise CollectionError("malformed_json") from None
     if media == "text/plain":
         raise CollectionError("unexpected_content_type")
     from bs4 import BeautifulSoup
@@ -199,10 +208,10 @@ class Collector:
                                 retry_after = max(0, (stamp - datetime.now(timezone.utc)).total_seconds())
                             if retry_after > self.config.max_duration_seconds:
                                 raise CollectionError("retry_after_exceeds_budget")
-                        except (ValueError, TypeError, OverflowError) as exc:
-                            if isinstance(exc, CollectionError):
-                                raise
-                            raise CollectionError("invalid_retry_after") from exc
+                        except CollectionError:
+                            raise
+                        except (ValueError, TypeError, OverflowError):
+                            raise CollectionError("invalid_retry_after") from None
                     self.report.event("retry_upstream_unavailable")
                     continue
                 raise CollectionError("upstream_unavailable")

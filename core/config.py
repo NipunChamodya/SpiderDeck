@@ -66,6 +66,8 @@ class ImportConfig:
     max_text_chars: int = 10_000_000
     max_pdf_pages: int = 500
     min_pdf_text_chars: int = 10
+    max_xml_depth: int = 100
+    max_spreadsheet_columns: int = 1024
 
     def __post_init__(self) -> None:
         for value in vars(self).values():

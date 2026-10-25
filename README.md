@@ -402,11 +402,17 @@ so no Precision@K, Recall@K or NDCG accuracy claims are made.
 `config.toml` is loaded relative to the application directory. `[import]`
 configures input bytes (default 20 MiB), expanded archive bytes (100 MiB), ZIP
 members (5,000), records (20,000), extracted text/field characters (10 million),
-PDF pages (500), and minimum page text (10 characters). Limits must be positive
+PDF pages (500), minimum page text (10 characters), XML nesting depth (100),
+and spreadsheet columns (1,024). Limits must be positive
 integers. Imports use bounded input snapshots and lazy parser imports. They do
 not stream indefinitely; parser CPU and peak memory are not hard sandboxed.
 Keep limits modest on an 8 GB Mac and import only documents you trust enough to
-process locally. XLSX/DOCX archive limits are checked before parsing.
+process locally. XLSX/DOCX archives receive a streaming XML preflight before the
+Office libraries run. DTDs/entities, unsafe ZIP member paths, symlinks, duplicate
+members, malformed XML and excessive nesting are refused. Worksheet dimensions,
+actual cell coordinates and row counts are checked, including unused/blank rows.
+Trim inflated worksheet ranges or split large sheets; increase
+`max_spreadsheet_columns` explicitly if a legitimate wide sheet requires it.
 
 ## Security and authorization
 
@@ -432,8 +438,15 @@ python -m pip_audit --local
 ```
 
 Tests generate all supported document formats in temporary directories and run
-offline. The security self-check has 11 in-process cases; it is a smoke test,
-not proof of network security. The dependency audit needs network access.
+without external websites. Real TLS integration tests bind an ephemeral HTTPS
+server to `127.0.0.1`; restricted test environments must permit local listeners.
+Tests generate private temporary CA/leaf keys and validate certificates using
+OpenSSL. Test-only routing maps the approved fixture endpoint to that listener;
+production continues to reject loopback and nonstandard ports. You can run these
+separately with `python -m pytest tests/test_tls_integration.py -q`.
+The security self-check has 23 in-process cases and needs no network or files;
+it is a smoke test, not proof of network security. The dependency audit queries
+package names/versions and needs network access; it sends no imported documents.
 
 ## Troubleshooting and limitations
 
@@ -444,8 +457,9 @@ values may be absent or stale. DOCX headers, footers, text boxes and nested tabl
 are not imported. HTML is not rendered and Markdown is retained as source text.
 Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
 
-Next: expanded adversarial testing and security review (Phase G). JavaScript
-rendering, authenticated sessions and broader API support remain deferred until
+Security regression coverage includes Phase G TLS, diagnostic privacy and hostile
+document tests. JavaScript rendering, authenticated sessions and broader API
+support remain deferred until
 equivalent transport-level network policy can be enforced.
 
 The PDF stack is pinned to `pdfplumber==0.11.10` and
@@ -561,11 +575,33 @@ the installed-package dependency audit reports no known vulnerabilities. A
 real-world relevance evaluation and live-network performance remain outside these
 measurements.
 
-## Security testing progress
+## Phase G security hardening
 
-Phase G has begun with offline regression tests for TLS-handshake cancellation
-and repeated-slash document-viewer restriction detection. The handshake watchdog
-now closes the active TLS socket and uses the remaining request timeout. Viewer
-variants stop with the existing authorized-export guidance. No new dependency,
-network capability or database migration was introduced. Broader Phase G testing
-is still in progress; see `SECURITY.md` for coverage boundaries and remaining work.
+Real local HTTPS integration tests cover valid, expired and untrusted certificates,
+hostname mismatch, handshake timeout, socket cancellation, and a keyboard
+interrupt during a blocked handshake. Offline adversarial fixtures cover corrupt
+PDFs and Office archives, DTD/entity attacks (including UTF-16), ZIP traversal,
+symlinks/duplicates, encryption flags, CRC errors, archive expansion, excessive
+XML nesting and malicious spreadsheet dimensions/cell references.
+
+Known parser logger namespaces and warnings are contained during local and web
+parsing, with a generic notice when diagnostics are omitted. Raw document text,
+tokens, cookies, passwords and sensitive query URLs are tested against captured
+logs/output. Public parser and transport exceptions suppress document-derived
+chained tracebacks. HTTP header debug printing is disabled; audit error/event
+codes use a finite allowlist. The unused legacy logging helper no longer creates
+`logs/` files or records raw source strings. Collection audit files remain under
+the configured output directory.
+
+The parser diagnostic guard supports the application's serial parsing workflow;
+it temporarily changes dependency logger handlers and process-wide warning hooks.
+Concurrent external reconfiguration of those hooks is unsupported. Imported
+records, explicit browsing and user-requested exports still contain the data you
+chose to collect; they are not diagnostic logs and are not automatically redacted.
+See [SECURITY.md](SECURITY.md) for verification scope and remaining limitations.
+
+Verified on 2026-10-25 with Python 3.13.4: **419 tests passed in 8.55 seconds**,
+all 23 self-check cases passed, dependency imports and `pip check` passed, and
+`pip-audit --local` reported no known vulnerabilities. The full suite included
+all 7 real local TLS cases; none were skipped. No runtime dependencies or database
+schema changes were introduced by this Phase G increment.

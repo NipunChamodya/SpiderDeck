@@ -14,6 +14,8 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.table import Table
+from security.filesystem import output_filename
+from security.network_policy import NetworkPolicy, approve_target, normalize_url, public_ip
 
 from security.validators import (
     UnsafeArgumentError,
@@ -40,6 +42,9 @@ def _case(label: str, fn, *, expect_pass: bool) -> tuple[str, bool, str]:
 
 def run(*, verbose: bool = True, plain: bool = False) -> bool:
     base = Path(__file__).resolve().parent.parent / "output"
+    # URL checking here does not resolve DNS or open a socket.
+    policy = NetworkPolicy(approve_target('https://research.test/', ['research.test'],
+                                         authorized=True), ['research.test'])
     cases = [
         # --- Path traversal: must be BLOCKED ---
         _case(
@@ -102,6 +107,20 @@ def run(*, verbose: bool = True, plain: bool = False) -> bool:
             lambda: validate_subprocess_arg("supervisor_list.csv"),
             expect_pass=True,
         ),
+        _case('Live policy: IPv4 loopback', lambda: public_ip('127.0.0.1'), expect_pass=False),
+        _case('Live policy: cloud metadata', lambda: public_ip('169.254.169.254'), expect_pass=False),
+        _case('Live policy: IPv6 loopback', lambda: public_ip('::1'), expect_pass=False),
+        _case('Live policy: IPv6 private', lambda: public_ip('fd00::1'), expect_pass=False),
+        _case('Live policy: IPv4-mapped IPv6', lambda: public_ip('::ffff:8.8.8.8'), expect_pass=False),
+        _case('Live policy: URL userinfo', lambda: normalize_url('https://user:example@research.test/'), expect_pass=False),
+        _case('Live policy: query URL', lambda: normalize_url('https://research.test/?token=example'), expect_pass=False),
+        _case('Live policy: invalid scheme', lambda: normalize_url('file:///etc/passwd'), expect_pass=False),
+        _case('Live policy: target approval required',
+              lambda: approve_target('https://research.test/', ['research.test'], authorized=False), expect_pass=False),
+        _case('Live policy: new origin needs approval',
+              lambda: policy.check_url('https://other.test/'), expect_pass=False),
+        _case('Output publication: traversal filename', lambda: output_filename('../escape.csv'), expect_pass=False),
+        _case('Live policy: approved origin path', lambda: policy.check_url('https://research.test/page'), expect_pass=True),
     ]
 
     table = Table(title="SpiderDeck Security Self-Check")

@@ -16,6 +16,8 @@ from typing import Any
 from core.config import ImportConfig
 from core.models import ExtractedRecord, ImportResult
 from security.validators import UnsafePathError, safe_input_path
+from security.parser_diagnostics import OMITTED_DIAGNOSTICS, private_parser_diagnostics
+from security.office import OfficeValidationError, validate_office_archive
 
 
 class DocumentImportError(ValueError):
@@ -30,17 +32,7 @@ def _normalize(value: str) -> str:
 
 
 def _archive_check(data: bytes, config: ImportConfig) -> None:
-    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-        members = archive.infolist()
-        if len(members) > config.max_archive_members:
-            raise DocumentImportError("Archive contains too many members.")
-        if sum(item.file_size for item in members) > config.max_expanded_bytes:
-            raise DocumentImportError("Expanded document exceeds the configured size limit.")
-        for item in members:
-            if item.flag_bits & 1:
-                raise DocumentImportError("Encrypted documents require an authorized unencrypted export.")
-            if "vbaproject" in item.filename.lower():
-                raise DocumentImportError("Macro-bearing documents are not supported; export a macro-free copy.")
+    validate_office_archive(data, config)
 
 
 def import_document(requested: str | Path, config: ImportConfig | None = None) -> ImportResult:
@@ -68,16 +60,22 @@ def import_document(requested: str | Path, config: ImportConfig | None = None) -
                 raise DocumentImportError("Input changed while reading. Retry when the file is stable.")
         if len(data) > config.max_file_bytes:
             raise DocumentImportError("File grew beyond the configured size limit.")
-        return _parse(path, data, config)
+        with private_parser_diagnostics() as diagnostics:
+            result = _parse(path, data, config)
+        if diagnostics.count:
+            return ImportResult(result.source, result.records, [*result.warnings, OMITTED_DIAGNOSTICS])
+        return result
     except DocumentImportError:
         raise
-    except ImportError as exc:
-        raise DocumentImportError("Parser dependency missing. Run bash install.sh and retry.") from exc
+    except OfficeValidationError as exc:
+        raise DocumentImportError(str(exc)) from None
+    except ImportError:
+        raise DocumentImportError("Parser dependency missing. Run bash install.sh and retry.") from None
     except (UnsafePathError, OSError, ValueError, EOFError, KeyError, TypeError,
-            RecursionError, csv.Error, zipfile.BadZipFile) as exc:
+            IndexError, RecursionError, csv.Error, zipfile.BadZipFile):
         raise DocumentImportError(
             "Cannot read document. Check permissions, format and encoding; obtain a valid UTF-8 or original-format export."
-        ) from exc
+        ) from None
 
 
 def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
@@ -144,8 +142,8 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                     rows(sheet.iter_rows(values_only=True), sheet.title)
             finally:
                 workbook.close()
-        except XMLSyntaxError as exc:
-            raise DocumentImportError("Malformed XLSX XML; obtain a valid spreadsheet export.") from exc
+        except (XMLSyntaxError, AttributeError):
+            raise DocumentImportError("Malformed XLSX XML; obtain a valid spreadsheet export.") from None
         warnings.append("Spreadsheet formulas are not evaluated; only existing cached values are read.")
     elif kind == "docx":
         _archive_check(data, config)
@@ -159,8 +157,8 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                 for row_number, row in enumerate(table.rows, 1):
                     fields = {f"column_{i}": cell.text for i, cell in enumerate(row.cells, 1)}
                     add("\n".join(fields.values()), fields, {"table": number, "row": row_number})
-        except XMLSyntaxError as exc:
-            raise DocumentImportError("Malformed DOCX XML; obtain a valid document export.") from exc
+        except (XMLSyntaxError, AttributeError):
+            raise DocumentImportError("Malformed DOCX XML; obtain a valid document export.") from None
     elif kind == "pdf":
         from importlib.metadata import version
         installed = version("pdfminer.six")
@@ -199,8 +197,8 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                     # failure. We own the stream and close each live page above;
                     # clear container caches without constructing every page again.
                     pdf.flush_cache()
-        except (PSException, PdfminerException) as exc:
-            raise DocumentImportError("Unreadable or encrypted PDF; request an authorized text-based export.") from exc
+        except (PSException, PdfminerException):
+            raise DocumentImportError("Unreadable or encrypted PDF; request an authorized text-based export.") from None
     else:
         text = data.decode("utf-8-sig")
         if kind == "json":

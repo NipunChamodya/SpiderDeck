@@ -231,7 +231,7 @@ retains fixtures. Reports do not establish real-world relevance accuracy or a
 security guarantee. No data migration or security/network policy relaxation was
 needed for the measured improvements.
 
-## Phase G: initial adversarial regressions
+## Phase G: initial increment (historical)
 
 The first Phase G increment fixes two issues found by code review and reproduced
 with offline tests. The TLS watchdog now owns the wrapped socket before an
@@ -247,7 +247,90 @@ of a blocked simulated handshake, sanitized timeout errors, and repeated-slash
 viewer paths. These are offline unit/component tests using controlled socket
 fixtures, not live TLS integration tests or an external penetration test. They do
 not establish operating-system routing isolation or bounded DNS resolver runtime.
-Phase G remains in progress: real certificate-chain integration, parser diagnostic
-privacy review, and broader malicious-document coverage remain follow-up work.
+At that checkpoint, real certificate-chain integration, parser diagnostic privacy
+review and broader malicious-document coverage remained follow-up work. The
+verification below supersedes that checkpoint.
 Dependency audit results cover known advisories in installed Python packages;
 they do not audit the interpreter, system OpenSSL, SQLite or unknown vulnerabilities.
+
+
+## Phase G: TLS, parser privacy and malicious documents
+
+The real TLS integration suite uses generated short-lived EC test CAs and leaf
+certificates on a loopback-only HTTPS listener. It validates successful HTTPS,
+expiry, an untrusted issuer, and hostname mismatch, checking the OpenSSL
+verification error codes. It also exercises a stalled handshake deadline,
+explicit socket cancellation, and a keyboard interrupt during real blocking
+handshake I/O. It asserts descriptor/thread cleanup. Only the test routing and
+trust-store fixtures are substituted; certificate/SNI/HTTP/timeout behavior is
+real. Production loopback rejection and destination pinning are unchanged. These
+tests require permission to bind a local listener and contact no external sites.
+This is integration testing, not an external penetration test or an OS firewall.
+
+Manual review covered application logging calls, parser dependency diagnostic
+calls, public exception wrapping, crawler transport debug output and collection
+audit serialization. PDFMiner debug events can contain full text; pdfplumber
+metadata warnings and BeautifulSoup locator warnings can contain sensitive input.
+Known parser namespaces now terminate at discard-only handlers within a scoped,
+serialized context. Existing child handlers and warning hooks are restored after
+success, exceptions and cancellation. Warnings are discarded before formatting;
+only a fixed omission notice reaches the import result. Independent operational
+loggers are unaffected. Public errors suppress the original exception traceback.
+The application does not print HTTP debug headers, log cookies/authentication,
+or include document bodies, paths, query URLs or raw exception strings in crawl
+audits. Unknown error/event codes become `collection_failed`. The unused legacy
+access-log helper discards raw source/status input and creates no automatic file.
+
+Privacy regressions use real PDF debug/metadata diagnostics and HTML warnings,
+plus injected tokens, cookies, passwords, private text and query URLs. They check
+captured Python logs, directly attached parser handlers, warning capture, stdout,
+stderr, formatted public tracebacks and serialized crawl audit payloads. Imported
+records and explicitly requested browsing/exports intentionally retain content;
+this does not redact or encrypt the research database.
+
+OOXML preflight uses the standard library's streaming Expat parser with DTD,
+entity and external-reference declarations refused, including UTF-16 documents.
+It never extracts ZIP paths. Unsafe paths, symlink and duplicate members,
+unsupported compression, encrypted flags and macro filenames are refused before
+Office parsing. Expanded sizes/member counts are checked; XML is read in 64 KiB
+chunks with a nesting limit. Worksheet coordinates/dimensions and actual row/cell
+counts are checked before openpyxl can allocate wide rows or traverse sparse gaps.
+Default `max_xml_depth` is 100 and `max_spreadsheet_columns` is 1024; maximum
+worksheet row references are bounded by `max_records + 1` (including the header).
+Inflated ranges, even on otherwise readable sheets, need trimming or splitting.
+Corrupt CRCs/XML, invalid shared-string references and malformed PDF/Office
+structures produce document-independent actionable errors. External Office
+relationships are not fetched; no macros, scripts, OCR or shell repair is run.
+
+The self-check now covers 23 in-process cases, adding current network-policy
+IP/IPv6/userinfo/query/authorization checks and output filename validation to the
+legacy smoke cases. It neither resolves live DNS nor creates a database.
+
+Remaining security limits:
+
+- Parser resource limits are guardrails, not a hard CPU/RAM sandbox. Native PDF,
+  font/image, ZIP-directory and XML internals can consume resources before an
+  application limit applies. For highly hostile documents, use OS isolation.
+- Parser diagnostic containment assumes SpiderDeck's serial parsing and standard
+  dependency loggers/warnings. Concurrent external handler reconfiguration,
+  debugger/local-variable dumps, arbitrary plugins and hostile same-user processes
+  are outside this boundary. The lock serializes SpiderDeck parser calls; warning
+  hooks are process-wide and unrelated concurrent warnings could be omitted.
+- DNS resolution duration, trusted OS routing and same-user filesystem tampering
+  remain the documented transport/filesystem limits. Certificate validation uses
+  configured trust roots and system time; active revocation checking is not added.
+- No live-site crawl, authenticated/browser security test, fuzzing campaign or
+  independent penetration test was performed. Those capabilities remain deferred.
+- pip-audit covers known Python-package advisories, not unknown vulnerabilities,
+  the Python interpreter, system OpenSSL, Expat or SQLite. Keep the OS/runtime
+  patched separately. No new runtime dependency is needed for this increment.
+
+Verification on 2026-10-25 (macOS, Python 3.13.4): the complete suite passed
+**419 tests in 8.55 seconds**, including 7 real local TLS integration cases,
+15 diagnostic/privacy cases and 54 malicious-document cases. The 23-case CLI
+self-check passed. `verify.py` imported all required packages, `pip check` found
+no broken requirements, and `pip-audit --local` reported no known vulnerabilities.
+Installer shell syntax and `git diff --check` also passed. Initial sandbox runs
+could not bind the HTTPS listener; the final full suite ran with local-listener
+permission and skipped no TLS cases. These are measured test results and manual
+code-review findings, subject to the limits above, not a security certification.
