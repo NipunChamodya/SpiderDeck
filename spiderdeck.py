@@ -86,8 +86,21 @@ def run_menu(args: argparse.Namespace) -> None:
     selected = getattr(args, "config", None)
     try:
         config = load_config(Path(selected).expanduser()) if selected else load_config()
-    except (OSError, ValueError, TypeError) as exc:
-        raise ConfigurationError("Cannot load configuration. Check the TOML path, section types and values.") from exc
+    except (OSError, ValueError, TypeError):
+        from ui import menu
+        if sys.stdin.isatty() and sys.stdout.isatty() and not args.dry_run:
+            print('Configuration is unreadable. The original will remain untouched. Settings can create a private backup and recover it.')
+            try:
+                allowed = menu.confirm('Continue this session with documented defaults and no approved hostnames? Output defaults to the application output directory.')
+            except menu.PromptCancelled:
+                allowed = False
+            if allowed:
+                from core.config import AppConfig, CrawlConfig, OutputConfig
+                config = AppConfig(CrawlConfig(), OutputConfig())
+            else:
+                raise ConfigurationError('Configuration recovery cancelled. The original file was preserved.') from None
+        else:
+            raise ConfigurationError('Cannot load configuration. Check the TOML path, section types and values; interactive Terminal sessions can open safe recovery.') from None
     with use_options(_display_options(args)):
         _run_menu(args, config)
 
@@ -145,47 +158,19 @@ def _run_menu(args: argparse.Namespace, config: AppConfig) -> None:
                 continue
             from ui import collection
             try:
-                collection.run(config.crawl, get_store)
+                from core.config import CONFIG_PATH
+                selected = getattr(args, "config", None)
+                collection.run(config.crawl, get_store,
+                               config_path=Path(selected).expanduser() if selected else CONFIG_PATH,
+                               output_dir=ROOT / Path(config.output.dir).expanduser())
             except menu.PromptCancelled:
                 print("Collection prompt cancelled; no target approved.")
             except (StorageError, OSError, ValueError):
                 print("Collection/storage failed. Check configuration, output permissions and disk space; audit may be unavailable.")
 
         elif choice.startswith("2"):
-            from handlers.local import DocumentImportError, import_document
-            try:
-                requested = menu.prompt_path("Local document to import:")
-            except menu.PromptCancelled:
-                print("Import cancelled.")
-                continue
-            if not requested:
-                continue
-            if args.dry_run:
-                print("Dry run: no document read.")
-                continue
-            try:
-                with operation("Extracting local document"):
-                    result = import_document(requested, config.imports)
-                with operation("Saving normalized records"):
-                    summary = get_store().save_import(result)
-            except DocumentImportError as exc:
-                print(f"Import failed: {exc}")
-                continue
-            except StorageError as exc:
-                print(f"Storage failed: {exc}")
-                continue
-            except (OSError, UnsafePathError):
-                print("Storage failed. Check output permissions and disk space; no import was committed.")
-                continue
-            print(f"Imported {len(result.records)} records; saved {summary.inserted} new records; "
-                  f"skipped {summary.duplicates} duplicate identifiers.")
-            if summary.content_duplicates:
-                print(f"{summary.content_duplicates} records have content already stored; source provenance retained.")
-            if summary.reimported:
-                print("This document's record set was imported previously.")
-            for warning in result.warnings:
-                print(f"Notice: {warning}")
-            del result  # SQLite owns the persisted copy; do not accumulate sessions in RAM.
+            from ui import importing
+            importing.run(config.imports, get_store, dry_run=args.dry_run)
 
         elif choice.startswith(("3", "4", "9")):
             from ui import records
@@ -223,9 +208,9 @@ def _run_menu(args: argparse.Namespace, config: AppConfig) -> None:
 
         elif choice.startswith("7"):
             from core.config import CONFIG_PATH
-            from ui.settings import show
+            from ui.settings import run
             selected = getattr(args, "config", None)
-            show(config, Path(selected).expanduser() if selected else CONFIG_PATH, ROOT)
+            run(config, Path(selected).expanduser() if selected else CONFIG_PATH, ROOT, dry_run=args.dry_run)
 
         elif choice.startswith("8"):
             print("Goodbye.")

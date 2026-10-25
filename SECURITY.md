@@ -53,7 +53,7 @@ do not write document contents to logs. Existing legacy logs are preserved.
 
 Live HTTP collection uses `security/network_policy.py` and
 `crawler/fetcher.py`, not the legacy preflight URL helper. Each run requires a
-configured exact hostname and an explicit declaration of automated-collection
+explicitly approved exact hostname (run-only or saved) and a declaration of automated-collection
 permission for one origin. No target is automatically authorized because another
 host, subdomain, port or scheme was approved. Discovered external links are
 ignored; redirects outside the approved origin stop. Browser rendering and
@@ -106,12 +106,12 @@ page is never imported; earlier valid pages are not silently deleted. Storage
 and audit remain local under output. Raw response headers/bodies only exist in
 bounded memory during processing and are not debug-logged.
 
-Verification uses offline DNS/socket wire fixtures, not live internet targets.
-Tests validate pinning, rebinding, peer checks, TLS context requirements and
-simulated verification failures; they do not constitute a real certificate-chain
-handshake test, live-site penetration test or proof of complete SSRF security.
+Verification combines offline DNS/socket fixtures with real loopback TLS
+certificate integration tests (see Phase G and V1 below). Tests validate pinning,
+rebinding, peer checks and certificate failures; they are not live-site penetration
+tests or proof of complete SSRF security.
 
-The self-check is an offline 11-case smoke test, not a network security audit.
+The current self-check is an offline 23-case smoke test, not a network security audit.
 No dependency audit or test result implies complete security. Report dependency
 findings and update dependencies in a separate reviewed change; do not silently
 change existing user dependency choices.
@@ -334,3 +334,95 @@ Installer shell syntax and `git diff --check` also passed. Initial sandbox runs
 could not bind the HTTPS listener; the final full suite ran with local-listener
 permission and skipped no TLS cases. These are measured test results and manual
 code-review findings, subject to the limits above, not a security certification.
+
+
+## V1 interactive approval, native input and configuration writes
+
+Entering a URL performs only local syntax/hostname normalization. A previously
+unapproved hostname must be explicitly approved for this run or saved after
+confirmation; saved entries are not per-run collection authorization. Invalid
+legacy entries stay inactive on disk and never automatically become approvals.
+The user separately authorizes automated preflight GETs before any DNS/socket
+work. The exact-host temporary configuration is passed through the unchanged
+NetworkPolicy and pinned TLS transport; it grants no wildcard, scheme or redirect
+exception. IP checks, TLS verification, robots, restriction detection, honest
+User-Agent, rate limits and aggregate budgets remain enforced.
+
+Preflight reserves an exclusive private audit file under output before networking.
+It checks robots and one seed page, pauses without following links, and then needs
+another user confirmation before continuing collection or persisting records.
+The pause retains only bounded parser/response data. Seed/robots requests are
+reused, not repeated; active preflight time, request counts and bytes count toward
+collection budgets. Preflight additionally caps attempts at 8, redirects per chain
+at 3, scheduled active duration at 20s, individual responses at 2 MiB, and aggregate
+bodies at 4 MiB (configured lower limits take precedence). These are not a hard OS
+DNS/CPU watchdog. The confirmation pause is excluded from active-work duration
+without increasing the request/byte allowance. Later requests still re-resolve
+and pin public IPs. Cancellation publishes only non-sensitive aggregate audit
+fields; no seed records are saved unless final collection was authorized. Stored
+pages accepted before a later failure remain additive, as in the previous flow.
+
+Opening the browser is an optional explicit action after a successful public
+access check. It uses a fixed macOS `open` argument list (stdlib browser selection
+on other systems), with a revalidated query-free HTTP(S) URL. The browser itself
+is an independent external application: its cookies, redirects and networking
+are not controlled by the pinned crawler and are never read or reused by
+SpiderDeck. This does not implement authenticated collection. Login/CAPTCHA,
+robots denials, paywalls and restricted document viewers still require an
+authorized export; no browser-session extraction was added.
+
+Native file selection loads only on request. Existing NSOpenPanel/PyObjC or Tk
+may supply the dialog; otherwise a fixed `osascript` script invokes macOS's
+built-in choose-file panel. It accepts no untrusted script parameters. Selected
+paths are returned as data and passed directly to the existing descriptor/file
+validation and parsers; they never enter a shell command. A cancelled panel is
+distinct from an unavailable/headless panel, so cancellation does not trigger a
+text prompt. Imported documents are never automatically opened externally.
+Read-only previews strip controls/bidirectional formatting and stay bounded;
+file size is the validated snapshot size. Password/malformed/oversize/path errors
+remain document-independent and do not expose selected paths in failure messages.
+A source-exact SQLite filter prevents imported-source views from matching nearby
+filenames. Record identifiers and database schema are unchanged.
+
+Interactive settings can edit only hostname entries and the documented crawl
+limits. They cannot enable local/private crawling, disable robots or introduce
+credentials. Every persistent edit requires confirmation. The writer checks a
+small owned regular configuration file without symlinks/hardlinks/shared-write
+permissions, and an owned parent not writable by others. It validates the full
+candidate with the existing loader, compares parsed before/after data to ensure
+unrelated values are preserved, and edits only supported crawl values. Existing
+comments outside changed values remain verbatim; comments inside a replaced
+hostname array may be replaced. Unsupported TOML layouts are refused, never
+wholesale reformatted. A 0600 exclusive backup preserves all original bytes,
+then a 0600 temporary file is fsynced and atomically replaced. These explicitly
+requested configuration files/backups are the exception to application-output
+containment; databases, exports and collection audits still remain under output.
+
+Advisory file locking coordinates SpiderDeck writers. Inode/content/mtime/ctime
+snapshots detect stale dialogs, moved files and observed concurrent edits before
+publication; users must reload and review again after conflict. Trusted ancestors
+and cooperative editors are still required: POSIX rename has no universal
+compare-and-swap against a hostile same-user editor changing the pathname during
+the final check/replace interval. Locks are not a filesystem sandbox. Hidden
+backup files remain private beside the selected configuration, are never
+silently deleted and may contain any secrets previously present in that file.
+Existing user changes were not discarded or automatically normalized.
+
+Unreadable configuration is never silently replaced. An interactive Terminal
+session can explicitly choose safe session defaults with no saved host approvals;
+a separate Settings recovery confirmation backs up the original bytes and writes
+documented defaults. It changes no database. Headless invalid-config startup
+still exits with code 2. Missing/unsafe/symlink configuration is not auto-created
+or overwritten; such paths remain read-only. Other configuration sections need a
+restart after recovery; users should review the output location before importing.
+All native dialog/browser tests are mocked. Visual macOS behavior requires the
+manual checks in MANUAL_TESTING.md and is not claimed as automatically verified.
+
+V1 verification on 2026-10-25: the complete suite passed **485 tests in 8.18s**,
+including all 8 real loopback HTTPS cases and 65 focused V1 configuration/workflow
+cases. The 23-case security self-check, dependency imports, `pip check`, shell
+syntax and `git diff --check` passed. `pip-audit --local` reported no known
+vulnerabilities. Tests mock native panel/browser interactions; visual macOS
+acceptance checks remain unperformed. The preexisting parser CPU/RAM, OS DNS,
+trusted-routing, same-user filesystem and known-advisory audit limits still apply.
+Configuration locking uses POSIX `flock`; Windows support is not established.

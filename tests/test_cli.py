@@ -376,6 +376,7 @@ def test_audit_view_limits_history_to_newest_twenty(tmp_path, capsys):
 def test_settings_menu_does_not_initialize_storage(monkeypatch, tmp_path, capsys):
     setup_menu(monkeypatch, tmp_path)
     choices = iter(['7) Settings', '8) Quit'])
+    monkeypatch.setattr(menu, 'prompt_choice', lambda *args: 'Back')
     monkeypatch.setattr(menu, 'main_menu', lambda: next(choices))
     spiderdeck.run_menu(arguments())
     assert 'Settings (read-only)' in capsys.readouterr().out
@@ -423,8 +424,8 @@ def test_real_piped_import_search_export_and_settings(tmp_path):
     config.write_text('[output]\ndir=' + json.dumps(str(root)))
     source = tmp_path / 'people.csv'
     source.write_text('Name,Expertise\nA,computer vision\n')
-    answers = ['2', str(source), '3', '4', 'vision', '', 'csv', '9', '', '', '', 'records.json',
-               '7', '6', '2', '3', '8']
+    answers = ['2', str(source), '4', '3', '4', 'vision', '', 'csv', '9', '', '', '', 'records.json',
+               '7', '8', '6', '2', '3', '8']
     result = subprocess.run([sys.executable, '-B', str(Path(spiderdeck.__file__)), '--plain', '--quiet',
                              '--config', str(config)], input='\n'.join(answers) + '\n',
                             capture_output=True, text=True, check=True)

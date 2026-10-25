@@ -48,6 +48,7 @@ class SearchFilters:
     keyword: str = ""
     source: str = ""
     source_type: str = ""
+    exact_source: bool = False
 
 
 @dataclass(frozen=True)
@@ -288,8 +289,12 @@ class RecordStore:
             clauses.append("instr(unicode_fold(title || char(10) || text), ?) > 0")
             parameters.append(_fold(filters.keyword))
         if filters.source:
-            clauses.append("instr(unicode_fold(source), ?) > 0")
-            parameters.append(_fold(filters.source))
+            if filters.exact_source:
+                clauses.append("source = ?")
+                parameters.append(filters.source)
+            else:
+                clauses.append("instr(unicode_fold(source), ?) > 0")
+                parameters.append(_fold(filters.source))
         if filters.source_type:
             clauses.append("source_type = ?")
             parameters.append(_fold(filters.source_type).lstrip("."))

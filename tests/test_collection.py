@@ -519,7 +519,20 @@ def test_menu_collects_persists_and_writes_private_audit(tmp_path, monkeypatch, 
                             '/SECRET': response(status=403)})
     monkeypatch.setattr(menu, 'prompt_url', lambda _: ORIGIN)
     monkeypatch.setattr(menu, 'confirm', lambda _: True)
+    monkeypatch.setattr(menu, 'prompt_choice', lambda *args: 'Return to main menu')
+    monkeypatch.setattr(collection.native, 'open_browser', lambda url: False)
     with patch('ui.collection.Collector') as factory:
+        factory.return_value.report = report
+        factory.return_value.preflight.return_value = report
+        factory.return_value.ready = False
+        def preflight():
+            factory.return_value.ready = True
+            return report
+        def run():
+            factory.return_value.ready = False
+            return report
+        factory.return_value.preflight.side_effect = preflight
+        factory.return_value.run.side_effect = run
         factory.return_value.run.return_value = report
         collection.run(CrawlConfig(allowed_domains=['research.test']), lambda: store)
     assert store.count() == 1

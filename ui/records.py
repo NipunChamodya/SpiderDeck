@@ -1,5 +1,6 @@
 """Small record workflows using the existing questionary menu navigation."""
 from __future__ import annotations
+from dataclasses import replace
 
 from core.storage import RecordStore, SearchFilters
 from exporters.records import export_records
@@ -14,8 +15,11 @@ def prompt_filters() -> SearchFilters:
                          menu.prompt_text("Document type, e.g. csv (blank for all):"))
 
 
-def browse(store: RecordStore, *, search: bool = False) -> None:
-    filters = prompt_filters() if search else SearchFilters()
+def browse(store: RecordStore, *, search: bool = False, filters: SearchFilters | None = None) -> None:
+    if filters is None:
+        filters = prompt_filters() if search else SearchFilters()
+    elif search:
+        filters = replace(filters, keyword=menu.prompt_text('Keyword in this source (blank for all):'))
     with operation("Searching local records"):
         total = store.count(filters)
     print(f"{total} matching records.")
@@ -33,8 +37,8 @@ def browse(store: RecordStore, *, search: bool = False) -> None:
             break
 
 
-def export(store: RecordStore, *, dry_run: bool = False) -> None:
-    filters = prompt_filters()
+def export(store: RecordStore, *, dry_run: bool = False, filters: SearchFilters | None = None) -> None:
+    filters = prompt_filters() if filters is None else filters
     filename = menu.prompt_text("New export filename under output (e.g. results.csv or results.json):")
     if not filename:
         return

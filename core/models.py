@@ -28,3 +28,4 @@ class ImportResult:
     source: str
     records: list[ExtractedRecord]
     warnings: list[str]
+    size_bytes: int | None = None

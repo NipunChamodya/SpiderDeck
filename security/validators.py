@@ -49,11 +49,13 @@ def safe_input_path(requested: str | Path) -> Path:
     """
     text = str(requested)
     if _TRAVERSAL_PATTERN.search(text):
-        raise UnsafePathError(f"Path traversal pattern detected: {requested}")
+        raise UnsafePathError('Input paths containing traversal are refused. Select the file directly.')
 
     path = Path(text).expanduser().resolve()
+    if not path.exists():
+        raise UnsafePathError('The selected file is missing or moved. Select it again in Finder.')
     if not path.is_file():
-        raise UnsafePathError(f"Path does not exist: {path}")
+        raise UnsafePathError('Select a readable regular file, not a folder or device.')
     return path
 
 

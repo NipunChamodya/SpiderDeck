@@ -73,13 +73,24 @@ disable progress rendering rather than interrupting data processing. Another
 process changing the database can make an export's initial count differ from
 its final record count.
 
-Settings are **read-only**: edit the TOML file and restart to change persisted
-configuration. `--config` input paths are relative to the shell's current directory
-when not absolute. Relative output paths still resolve against the application
-directory. `--show-settings` prints configuration values and defaults (not runtime
-TTY/display preferences), escapes controls in JSON, and does not create/open a
-database. Invalid/missing configuration returns code 2 with a sanitized message
-without printing private TOML source snippets.
+Settings retain a read-only summary and add confirmed interactive actions for
+exact hostname approvals and crawl limits. Changes are atomic, keep private
+backups beside the selected TOML file, and preserve unrelated settings/comments
+where safely editable. Stale dialogs and concurrent SpiderDeck writers are
+refused; reload saved crawl settings and review the change again. Unusual TOML
+layouts are refused rather than rewritten wholesale. No database opens for
+settings. `--config` selects the file edited by these actions; relative paths use
+the shell working directory. Relative output paths still use the application
+directory. `--show-settings` remains a read-only JSON command and creates no files.
+
+Invalid configuration still returns code 2 in headless sessions. Interactive
+Terminal sessions can explicitly enter safe session defaults with no approved
+hostnames, then use **Settings → Recover unreadable configuration**. Recovery
+requires another confirmation, preserves the original bytes in a private backup,
+and resets configuration to documented defaults. Restart afterward; no database
+is deleted or replaced. Missing/symlink/shared-writable configuration files cannot
+be overwritten through these controls. Other non-crawl settings still require a
+restart to take effect.
 
 Menu **6)** can show up to 20 newest collection audit summaries without opening
 SQLite. It only reads matching private regular files under output, refuses
@@ -96,12 +107,31 @@ full manual VoiceOver/terminal-emulator accessibility review has not been perfor
 
 ## Importing
 
-Choose **2) Import a local document**, then enter a readable file path:
+Choose **2) Import a local document**. In a local macOS Terminal session, a
+native Finder-style file-selection dialog opens. Select a supported document and
+choose **Open**; cancelling the dialog returns without asking for a typed path.
+NSOpenPanel is used if PyObjC is already installed, then tkinter is tried if
+available, then macOS's built-in `choose file` dialog is invoked through a fixed
+`osascript` argument list. No GUI dependency is installed. This repository's
+Homebrew Python lacks `_tkinter`, so the built-in dialog fallback is relevant.
+SSH/headless sessions and unavailable dialogs offer the existing text-path prompt.
 
 ```text
-Local document to import: /Users/me/Documents/supervisors.xlsx
+Filename: supervisors.xlsx
+Document type: XLSX; file size: 12345 bytes.
 Imported 12 records; saved 12 new records; skipped 0 duplicate identifiers.
+Extracted characters: 2410.
+Text preview (up to 300 characters): ...
+Database: .../output/spiderdeck.sqlite3
 ```
+
+Counts/sizes in this example are illustrative. The size comes from the validated
+input snapshot. Preview text is short and strips terminal controls. The original
+file is never launched in another application. After import, choose **Browse
+imported records**, **Search imported content**, **Import another document**, or
+**Return to main menu**. Browse/search stay scoped to that exact source path and
+include earlier retained versions from that same file. Export remains in main
+menu **9)**. Filenames with spaces, Sinhala and Tamil are supported.
 
 Inputs may be outside `output/`. Folder recursion is not supported. Imports
 are atomic: a failed import returns no partial records. Documents are not
@@ -155,13 +185,13 @@ permissions rather than changing existing files automatically.
 
 Menu workflows retain arrow-key navigation:
 
-- **1) Authorized static web collection** requires an exact hostname allowlist and explicit per-run approval.
+- **1) Authorized static web collection** reviews and approves an exact hostname interactively, then requires per-run access-check and collection confirmations.
 - **2) Import** commits the complete document in one transaction.
 - **3) Browse** previews 20 records at a time.
 - **4) Search** combines keyword, source-path substring and exact document-type filters.
 - **5) Research ideas and supervisor ranking** manages saved ideas and compares them locally.
 - **6) Security audit and collection logs** runs the self-check or inspects recent private audit summaries.
-- **7) Settings** shows configuration and paths without opening the database.
+- **7) Settings** shows configuration and offers confirmed hostname/limit editing without opening the database.
 - **9) Export** applies the same filters and asks for a new `.csv` or `.json` filename.
 - **8) Quit** closes the application; saved records remain available next time.
 
@@ -215,19 +245,45 @@ backup. Database import/restore, encryption and record deletion workflows are no
 
 This increment supports public HTML/XHTML and explicitly authorized **public JSON
 GET endpoints**. It does not log in, use credentials/cookies, submit forms,
-execute JavaScript, fetch assets/iframes, follow refresh tags or run a browser.
+execute JavaScript, fetch assets/iframes, follow refresh tags or use a browser
+for extraction. Optional default-browser opening is separate from collection.
 Authentication alone is not permission for bulk extraction. Obtain appropriate
 permission before collecting anything.
 
-1. Add an **exact hostname** to `[crawl].allowed_domains` in `config.toml`, e.g.
-   `allowed_domains = ["research.example.org"]`. No wildcard/subdomain inheritance
-   or numeric IP targets are accepted.
-2. Choose **1) Authorized static web collection** and enter the URL.
-3. Review the scheme/hostname scope and page/depth limits, then explicitly confirm
-   permission for automated GET requests on that origin. A configured domain alone
-   does not grant approval. Declining makes no DNS, HTTP or database requests.
-4. Accepted pages become `web_html` or `web_json` records in the existing SQLite
-   database. Use browse/search/ranking/export normally afterward.
+1. Choose **1) Authorized static web collection** and enter a complete HTTPS URL.
+   URL/hostname validation is local and sends no requests. Ordinary query-free
+   public HTTPS URLs need no manual configuration editing.
+2. Review the hostname, page URL and page/depth/delay limits. For a new hostname,
+   choose **Approve for this run only**, **Save hostname for future use**, or
+   **Cancel**. Saving needs confirmation and a private configuration backup;
+   entering the URL alone never grants approval. Exact hosts only: subdomains,
+   different schemes and redirect destinations need their own approved workflow.
+3. Explicitly authorize bounded automated access checks. Only then are DNS, IP,
+   TLS, robots and seed-content checks performed with the existing pinned
+   transport. A private audit is reserved first, without opening SQLite. The
+   check reads robots.txt and one seed page, following only validated same-origin
+   redirects; it does not follow discovered links. It uses at most 8 attempts,
+   3 redirects per chain, 20 seconds of scheduled active work, 2 MiB per response
+   and 4 MiB total, or stricter configured limits. OS DNS duration is not hard
+   capped. Failed checks explain a safe next action.
+4. If checks pass, optionally open the approved URL in the default browser.
+   Browser cookies/sessions remain separate, and opening a page grants no
+   collection access. Browser-launch failure does not prevent collection.
+5. Separately confirm **Start collection**. The cached seed and robots result are
+   reused; preflight requests, bytes and active time count against run limits.
+   Human review time does not add network budget. Each later request resolves
+   and validates again. Declining the final start saves no records from the
+   access check; its aggregate audit remains under output.
+6. Review pages, extracted/saved records, bounded discovered-link counts, skipped
+   work, outcome, database location and audit name. Browse/search/export actions
+   are offered for this origin, including earlier retained runs. A later blocked
+   page can stop collection while previously accepted pages remain saved.
+
+Saved hostnames still need per-run confirmation. Settings can add/remove them
+without network requests. Invalid legacy allowlist entries (such as complete
+URLs) remain preserved but inactive; they are never silently converted into
+approvals. Remove an inactive entry through Settings when appropriate.
+
 
 Approval is for one origin per run, not every host in the configured allowlist.
 Same-origin links/HTTP redirects may be followed; external links are ignored.
@@ -605,3 +661,18 @@ all 23 self-check cases passed, dependency imports and `pip check` passed, and
 `pip-audit --local` reported no known vulnerabilities. The full suite included
 all 7 real local TLS cases; none were skipped. No runtime dependencies or database
 schema changes were introduced by this Phase G increment.
+
+## V1 manual acceptance checks
+
+See [MANUAL_TESTING.md](MANUAL_TESTING.md) for beginner macOS checks of native
+selection, previews, interactive approvals, settings, recovery and exports.
+Native dialog and browser interactions are mocked automatically; no visual macOS
+acceptance test or live-site collection is claimed as performed. No new runtime
+dependency or database schema change was introduced for these V1 workflows.
+
+V1 verification on 2026-10-25 (Python 3.13.4): **485 tests passed in 8.18 seconds**,
+including 65 focused configuration/workflow tests and all 8 real loopback HTTPS
+integration cases. All 23 security self-check cases, dependency imports,
+`pip check`, installer shell syntax and diff checks passed. `pip-audit --local`
+reported no known vulnerabilities. Native Finder-panel appearance/focus and
+browser handoff remain NOT RUN manually; use the manual-testing guide.

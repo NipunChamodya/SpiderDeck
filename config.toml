@@ -1,6 +1,6 @@
 [crawl]
 # Domains SpiderDeck is allowed to fetch from. Add your own before crawling.
-allowed_domains = []
+allowed_domains = ["https://en.wikipedia.org/wiki/Therac-25"]
 max_pages = 50
 max_depth = 2
 delay_seconds = 1.5

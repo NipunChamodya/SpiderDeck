@@ -127,6 +127,10 @@ class AppConfig:
 def load_config(path: Path = CONFIG_PATH) -> AppConfig:
     with open(path, "rb") as f:
         raw = tomllib.load(f)
+    return config_from_mapping(raw)
+
+
+def config_from_mapping(raw: dict) -> AppConfig:
     for name in ("crawl", "output", "import", "ranking", "fx"):
         if not isinstance(raw.get(name, {}), dict):
             raise ValueError("Configuration sections must be TOML tables.")

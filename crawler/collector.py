@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from email.message import Message
 from email.utils import parsedate_to_datetime
 from urllib.parse import urljoin, urlsplit
-from typing import Callable
+from typing import Callable, Generator
 
 from core.config import CrawlConfig
 from core.models import ExtractedRecord, ImportResult
@@ -33,6 +33,9 @@ class CrawlReport:
     requests: int = 0
     total_bytes: int = 0
     stop_reason: str = "completed"
+    links_discovered: int = 0
+    skipped_pages: int = 0
+    skipped_links: int = 0
 
     def event(self, code: str) -> None:
         # Never log bodies, URLs/queries/paths, response headers or exception strings.
@@ -41,7 +44,9 @@ class CrawlReport:
     def audit(self) -> dict:
         return {"origin": self.origin, "requests": self.requests, "body_bytes": self.total_bytes,
                 "pages_collected": len(self.documents), "stop_reason": audit_code(self.stop_reason),
-                "records_collected": sum(len(doc.records) for doc in self.documents), "events": self.events}
+                "records_collected": sum(len(doc.records) for doc in self.documents),
+                "links_discovered": self.links_discovered, "skipped_pages": self.skipped_pages,
+                "skipped_links": self.skipped_links, "events": self.events}
 
 
 def _restricted_url(url: str) -> None:
@@ -141,7 +146,8 @@ def _extract(response: Response, *, max_records: int, max_links: int) -> tuple[I
 class Collector:
     def __init__(self, approval: TargetApproval, config: CrawlConfig, *, transport=None,
                  clock=time.monotonic, sleep=time.sleep,
-                 on_progress: Callable[[int], None] | None = None):
+                 on_progress: Callable[[int], None] | None = None,
+                 on_stage: Callable[[str], None] | None = None):
         # Revalidate config so mutable configuration cannot disable safety checks.
         self.config = CrawlConfig(**asdict(config))
         self.policy = NetworkPolicy(approval, self.config.allowed_domains)
@@ -156,6 +162,16 @@ class Collector:
         self.robots = RobotsRules("", self.config.user_agent)
         self.used = False
         self.on_progress = on_progress
+        self.on_stage = on_stage
+        self._execution: Generator[None, None, None] | None = None
+        self.ready = False
+        self._finished = False
+        self._preflighting = False
+        self._preflight_elapsed = 0.0
+
+    def _stage(self, label: str) -> None:
+        if self.on_stage is not None:
+            self.on_stage(label)
 
     def _wait(self, extra: float = 0) -> None:
         now = self.clock()
@@ -170,16 +186,20 @@ class Collector:
         retry_after = 0.0
         for attempt in range(self.config.max_retries + 1):
             self._wait(max(2 ** (attempt - 1), retry_after) if attempt else 0)
-            if self.report.requests >= self.config.max_requests:
+            limit = min(self.config.max_requests, 8) if self._preflighting else self.config.max_requests
+            if self.report.requests >= limit:
                 raise CollectionError("request_limit")
-            remaining = self.config.max_total_bytes - self.report.total_bytes
+            byte_limit = min(self.config.max_total_bytes, 4 * 1024 * 1024) if self._preflighting else self.config.max_total_bytes
+            remaining = byte_limit - self.report.total_bytes
             if remaining <= 0:
                 raise CollectionError("total_byte_limit")
             self.report.requests += 1
+            self._stage("Fetching page")
             try:
                 response = self.transport.request(url, self.policy, user_agent=self.config.user_agent,
                     timeout=min(self.config.timeout_seconds, self.deadline - self.clock()),
-                    max_bytes=min(self.config.max_response_bytes, remaining), address_index=attempt)
+                    max_bytes=min(self.config.max_response_bytes, remaining, 2 * 1024 * 1024) if self._preflighting
+                              else min(self.config.max_response_bytes, remaining), address_index=attempt)
             except CollectionError as exc:
                 self.last_request = self.clock()
                 if exc.code in {"transport_failed", "request_timeout"} and attempt < self.config.max_retries:
@@ -188,7 +208,8 @@ class Collector:
                 raise
             self.last_request = self.clock()
             self.report.total_bytes += len(response.body)
-            if len(response.body) > min(self.config.max_response_bytes, remaining):
+            if len(response.body) > min(self.config.max_response_bytes, remaining,
+                                        2 * 1024 * 1024 if self._preflighting else self.config.max_response_bytes):
                 raise CollectionError("response_too_large")
             if response.status in {401, 403, 407, 451}:
                 raise CollectionError("authorization_denied")
@@ -221,7 +242,8 @@ class Collector:
     def _fetch(self, initial: str, *, robots: bool = False) -> Response | None:
         current = initial
         chain: set[str] = set()
-        for step in range(self.config.max_redirects + 1):
+        redirect_limit = min(self.config.max_redirects, 3) if self._preflighting else self.config.max_redirects
+        for step in range(redirect_limit + 1):
             current = self.policy.check_url(current)
             if current in chain:
                 raise CollectionError("redirect_loop")
@@ -230,13 +252,14 @@ class Collector:
                 if not self.robots.allows(current):
                     raise CollectionError("robots_disallow")
                 if current in self.visited:
+                    self.report.skipped_pages += 1
                     self.report.event("already_visited")
                     return None
                 self.visited.add(current)
             response = self._request(current)
             if response.status in {301, 302, 303, 307, 308}:
                 location = response.headers.get("location")
-                if not location or step >= self.config.max_redirects:
+                if not location or step >= redirect_limit:
                     raise CollectionError("redirect_limit")
                 current = self.policy.check_url(urljoin(current, location))
                 self.report.event("redirect")
@@ -244,14 +267,64 @@ class Collector:
             return response
         raise CollectionError("redirect_limit")
 
-    def run(self) -> CrawlReport:
+    def preflight(self) -> CrawlReport:
+        """Approved, audited robots + seed check; pause before following links.
+
+        At most 8 attempts, 3 redirects per chain, 20 seconds of scheduled I/O,
+        2 MiB per response and 4 MiB total (or stricter configured budgets).
+        DNS resolver duration retains the documented OS-level limitation.
+        """
         if self.used:
             raise CollectionError("collector_already_used")
         self.used = True
-        self.deadline = self.clock() + self.config.max_duration_seconds
+        started = self.clock()
+        self.deadline = started + min(self.config.max_duration_seconds, 20.0)
+        self._preflighting = True
+        self._execution = self._iterate()
+        try:
+            next(self._execution)
+            self.ready = True
+        except StopIteration:
+            self._finished = True
+        finally:
+            self._preflighting = False
+            self._preflight_elapsed = max(0, self.clock() - started)
+        return self.report
+
+    def cancel(self) -> None:
+        if self._execution is not None:
+            self._execution.close()
+        if not self._finished:
+            self.report.stop_reason = "cancelled"
+            self.report.event("cancelled")
+            self.report.event("collection_finished")
+        self.ready = False
+        self._finished = True
+
+    def run(self) -> CrawlReport:
+        if self.ready:
+            self.ready = False
+            # Human review time adds no network allowance. Count preflight's
+            # active time, bytes and requests against the full run budgets.
+            self.deadline = self.clock() + max(0, self.config.max_duration_seconds - self._preflight_elapsed)
+        elif self.used:
+            raise CollectionError("collector_already_used")
+        else:
+            self.used = True
+            self.deadline = self.clock() + self.config.max_duration_seconds
+            self._execution = self._iterate()
+        try:
+            for _ in self._execution:
+                pass
+        finally:
+            self._finished = True
+        return self.report
+
+    def _iterate(self) -> Generator[None, None, None]:
         self.report.event("target_approved")
         try:
             _restricted_url(self.policy.approval.seed_url)
+            self._stage("Checking access permissions")
             robots = self._fetch(self.policy.approval.origin + "/robots.txt", robots=True)
             if robots.status == 404:
                 self.report.event("robots_not_found")
@@ -276,6 +349,7 @@ class Collector:
                     break
                 url, depth = queue.popleft()
                 if url in self.visited:
+                    self.report.skipped_pages += 1
                     continue
                 response = self._fetch(url)
                 if response is None:
@@ -283,8 +357,10 @@ class Collector:
                 pages += 1
                 if response.status != 200:
                     raise CollectionError("unexpected_http_status")
+                self._stage("Extracting content")
                 document, links = extract(response, max_records=self.config.max_records - records,
                                           max_links=self.config.max_frontier + 1)
+                self.report.links_discovered += len(links)
                 records += len(document.records)
                 if records > self.config.max_records:
                     raise CollectionError("record_limit")
@@ -293,26 +369,38 @@ class Collector:
                 if self.on_progress is not None:
                     self.on_progress(len(self.report.documents))
                 if depth >= self.config.max_depth:
+                    self.report.skipped_links += len(links)
+                    if pages == 1:
+                        yield
                     continue
                 frontier_full = False
-                for link in sorted(set(links)):
+                self.report.skipped_links += len(links) - len(set(links))
+                ordered_links = sorted(set(links))
+                for link_index, link in enumerate(ordered_links):
                     try:
                         normalized = self.policy.check_url(link)
                     except CollectionError:
+                        self.report.skipped_links += 1
                         continue  # A discovered link does not authorize a new origin.
                     if normalized in scheduled or not self.robots.allows(normalized):
+                        self.report.skipped_links += 1
                         continue
                     if set(urlsplit(normalized).path.lower().split("/")) & {
                             "login", "logout", "signin", "signout", "delete", "remove", "admin", "account"}:
+                        self.report.skipped_links += 1
                         continue
                     if len(scheduled) >= self.config.max_frontier:
                         frontier_full = True
+                        self.report.skipped_links += len(ordered_links) - link_index
                         break
                     queue.append((normalized, depth + 1))
                     scheduled.add(normalized)
                 if frontier_full:
                     self.report.event("frontier_limit")
+                if pages == 1:
+                    yield
             if queue and self.report.stop_reason == "completed":
+                self.report.skipped_pages += len(queue)
                 self.report.stop_reason = "page_limit"
             elif self.report.stop_reason == "completed" and any(
                     event["code"] == "frontier_limit" for event in self.report.events):

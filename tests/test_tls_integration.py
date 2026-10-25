@@ -76,7 +76,7 @@ def certificates(tmp_path_factory):
 
 
 @contextmanager
-def https_server(certificates, label='valid', *, stall=False):
+def https_server(certificates, label='valid', *, stall=False, responses=None):
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(*map(str, certificates[label]))
@@ -94,24 +94,25 @@ def https_server(certificates, label='valid', *, stall=False):
     endpoint = listener.getsockname()
     def serve():
         try:
-            raw, _ = listener.accept()
-            with raw:
-                raw.settimeout(2)
-                accepted.set()
-                if stall:
-                    stop.wait(3)
-                    return
-                with context.wrap_socket(raw, server_side=True) as secured:
-                    data = b''
-                    while b'\r\n\r\n' not in data and len(data) < 8192:
-                        block = secured.recv(1024)
-                        if not block:
-                            break
-                        data += block
-                    requests.append(data)
-                    body = b'<p>local TLS fixture</p>'
-                    secured.sendall(b'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n'
-                        b'Content-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+            for response_index in range(len(responses) if responses else 1):
+                raw, _ = listener.accept()
+                with raw:
+                    raw.settimeout(2)
+                    accepted.set()
+                    if stall:
+                        stop.wait(3)
+                        return
+                    with context.wrap_socket(raw, server_side=True) as secured:
+                        data = b''
+                        while b'\r\n\r\n' not in data and len(data) < 8192:
+                            block = secured.recv(1024)
+                            if not block:
+                                break
+                            data += block
+                        requests.append(data)
+                        body = b'<p>local TLS fixture</p>'
+                        secured.sendall(responses[response_index] if responses else b'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n'
+                            b'Content-Length: ' + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
         except (OSError, ssl.SSLError) as exc:
             errors.append(type(exc))
     worker = threading.Thread(target=serve, name='spiderdeck-test-https')
@@ -248,3 +249,33 @@ def test_keyboard_interrupt_during_real_handshake_closes_socket(certificates, mo
         assert len(wrapped) == 1
         assert wrapped[0].fileno() == -1
         assert not server.requests
+
+
+def test_real_https_preflight_reuses_seed_then_persists(certificates, monkeypatch, tmp_path):
+    from core.config import CrawlConfig
+    from core.storage import RecordStore
+    from crawler.collector import Collector
+    def reply(media, body):
+        return (b'HTTP/1.1 200 OK\r\nContent-Type: ' + media + b'\r\nContent-Length: '
+                + str(len(body)).encode() + b'\r\nConnection: close\r\n\r\n' + body)
+    responses = [reply(b'text/plain', b'User-agent: *\nAllow: /'),
+                 reply(b'text/html', b'<p>Real TLS research fixture</p>')]
+    with https_server(certificates, responses=responses) as server:
+        local_route(monkeypatch, server, certificates)
+        monkeypatch.setattr(socket, 'getaddrinfo', lambda *a, **k: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, '', (PUBLIC, 443))])
+        config = CrawlConfig(allowed_domains=[HOST], max_pages=1, delay_seconds=0.01)
+        collector = Collector(approve_target(URL, [HOST], authorized=True), config)
+        report = collector.preflight()
+        assert collector.ready
+        assert report.requests == 2
+        assert len(report.documents) == 1
+        assert not (tmp_path / 'output').exists()
+        report = collector.run()
+        assert report.stop_reason == 'completed'
+        assert report.requests == 2
+        store = RecordStore(tmp_path / 'output')
+        assert store.save_import(report.documents[0]).inserted == 1
+        assert store.count() == 1
+        assert len(server.requests) == 2
+        assert not server.errors

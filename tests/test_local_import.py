@@ -182,6 +182,7 @@ def test_menu_import(tmp_path, monkeypatch, capsys):
     choices = iter(['2) Import a local document', '8) Quit'])
     monkeypatch.setattr(menu, 'main_menu', lambda: next(choices))
     monkeypatch.setattr(menu, 'prompt_path', lambda _: str(path))
+    monkeypatch.setattr(menu, 'prompt_choice', lambda *args: 'Return to main menu')
     monkeypatch.setattr(spiderdeck, 'run_security_check', lambda: True)
     monkeypatch.setattr(effects, 'matrix_intro', lambda **_: None)
     monkeypatch.setattr(effects, 'glitch_title', lambda *_, **__: None)

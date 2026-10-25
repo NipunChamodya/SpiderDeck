@@ -6,3 +6,5 @@ __pycache__/
 output/
 logs/
 .DS_Store
+.spiderdeck-config-backup-*.toml
+.spiderdeck-config-*.tmp

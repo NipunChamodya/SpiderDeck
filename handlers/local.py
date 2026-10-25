@@ -24,7 +24,7 @@ class DocumentImportError(ValueError):
     """An input could not be imported safely; no partial result is returned."""
 
 
-FORMATS = {".csv", ".xlsx", ".pdf", ".docx", ".json", ".md", ".txt", ".html", ".htm"}
+FORMATS = {".csv", ".xlsx", ".pdf", ".docx", ".json", ".md", ".markdown", ".txt", ".html", ".htm"}
 
 
 def _normalize(value: str) -> str:
@@ -63,15 +63,29 @@ def import_document(requested: str | Path, config: ImportConfig | None = None) -
         with private_parser_diagnostics() as diagnostics:
             result = _parse(path, data, config)
         if diagnostics.count:
-            return ImportResult(result.source, result.records, [*result.warnings, OMITTED_DIAGNOSTICS])
-        return result
+            return ImportResult(result.source, result.records, [*result.warnings, OMITTED_DIAGNOSTICS], len(data))
+        return ImportResult(result.source, result.records, result.warnings, len(data))
     except DocumentImportError:
         raise
     except OfficeValidationError as exc:
         raise DocumentImportError(str(exc)) from None
+    except UnsafePathError as exc:
+        raise DocumentImportError(str(exc)) from None
+    except PermissionError:
+        raise DocumentImportError('The selected file cannot be read. Check its Finder permissions or choose a readable copy.') from None
+    except FileNotFoundError:
+        raise DocumentImportError('The selected file is missing or moved. Select it again in Finder.') from None
+    except zipfile.BadZipFile:
+        raise DocumentImportError('The Office document archive is corrupt or unsupported. Obtain a fresh DOCX/XLSX export.') from None
+    except UnicodeError:
+        raise DocumentImportError('The text encoding cannot be read. Obtain a valid UTF-8 export.') from None
+    except json.JSONDecodeError:
+        raise DocumentImportError('The selected JSON is malformed. Obtain a valid UTF-8 JSON export.') from None
+    except csv.Error:
+        raise DocumentImportError('The selected CSV is malformed. Obtain a fresh CSV export with valid quoting and consistent columns.') from None
     except ImportError:
         raise DocumentImportError("Parser dependency missing. Run bash install.sh and retry.") from None
-    except (UnsafePathError, OSError, ValueError, EOFError, KeyError, TypeError,
+    except (OSError, ValueError, EOFError, KeyError, TypeError,
             IndexError, RecursionError, csv.Error, zipfile.BadZipFile):
         raise DocumentImportError(
             "Cannot read document. Check permissions, format and encoding; obtain a valid UTF-8 or original-format export."
@@ -171,6 +185,7 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
         from pdfminer.pdfpage import PDFPage
         from pdfplumber.utils.exceptions import PdfminerException
         from pdfminer.psparser import PSException
+        from pdfminer.pdfdocument import PDFPasswordIncorrect
         try:
             with io.BytesIO(data) as stream:
                 pdf = pdfplumber.open(stream)
@@ -197,7 +212,11 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                     # failure. We own the stream and close each live page above;
                     # clear container caches without constructing every page again.
                     pdf.flush_cache()
-        except (PSException, PdfminerException):
+        except PdfminerException as exc:
+            if exc.args and isinstance(exc.args[0], PDFPasswordIncorrect):
+                raise DocumentImportError('The selected PDF is password-protected. Request an authorized unlocked or text-based export.') from None
+            raise DocumentImportError('The selected PDF is malformed, unreadable or encrypted. Obtain an authorized text-based export.') from None
+        except PSException:
             raise DocumentImportError("Unreadable or encrypted PDF; request an authorized text-based export.") from None
     else:
         text = data.decode("utf-8-sig")
