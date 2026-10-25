@@ -196,7 +196,7 @@ def test_pdf_permission_enforced(tmp_path):
     document = MagicMock()
     document.doc.is_extractable = False
     with patch('pdfplumber.open') as opened:
-        opened.return_value.__enter__.return_value = document
+        opened.return_value = document
         with pytest.raises(DocumentImportError, match='disallows text extraction'):
             import_document(path)
         document.pages.__iter__.assert_not_called()

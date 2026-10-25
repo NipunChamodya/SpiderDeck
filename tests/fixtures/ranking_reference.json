@@ -1,0 +1,867 @@
+{
+  "config": {
+    "affiliation_fields": [
+      "affiliation",
+      "university",
+      "institution"
+    ],
+    "domain_fields": [
+      "domain",
+      "category",
+      "research domain"
+    ],
+    "domain_weight": 0.1,
+    "email_fields": [
+      "email",
+      "email address"
+    ],
+    "expertise_fields": [
+      "expertise",
+      "research interests",
+      "research areas",
+      "specialization",
+      "research expertise"
+    ],
+    "keyword_weight": 0.3,
+    "max_chars_per_record": 20000,
+    "max_features": 30000,
+    "max_ideas": 20,
+    "max_records": 5000,
+    "max_total_chars": 2000000,
+    "name_fields": [
+      "supervisor name",
+      "supervisor",
+      "name",
+      "full name",
+      "academic name"
+    ],
+    "text_weight": 0.6,
+    "top_k": 10
+  },
+  "expected": [
+    {
+      "candidate_count": 5,
+      "idea_id": "00000000000000000000000000000001",
+      "idea_title": "computer vision",
+      "matches": [
+        {
+          "components": {
+            "domain_relevance": 1.0,
+            "keyword_relevance": 1.0,
+            "text_similarity": 1.0
+          },
+          "matched_terms": [
+            "vision",
+            "sensors",
+            "computer",
+            "computer vision",
+            "fish",
+            "fish sensors",
+            "vision fish"
+          ],
+          "reason": "TF-IDF cosine=1.000; keyword coverage=1.000; domain match=1. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1).",
+          "record_ids": [
+            "copy",
+            "one"
+          ],
+          "score": 1.0,
+          "sources": [
+            "a.csv",
+            "copy.csv"
+          ],
+          "supervisor_name": "Vision",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.666667,
+            "text_similarity": 0.120233
+          },
+          "matched_terms": [
+            "vision"
+          ],
+          "reason": "TF-IDF cosine=0.120; keyword coverage=0.667; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1).",
+          "record_ids": [
+            "three"
+          ],
+          "score": 0.27214,
+          "sources": [
+            "c.csv"
+          ],
+          "supervisor_name": "தமிழ்",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.333333,
+            "text_similarity": 0.120233
+          },
+          "matched_terms": [
+            "sensors"
+          ],
+          "reason": "TF-IDF cosine=0.120; keyword coverage=0.333; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1).",
+          "record_ids": [
+            "four"
+          ],
+          "score": 0.17214,
+          "sources": [
+            "d.csv"
+          ],
+          "supervisor_name": "සිංහල",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "empty"
+          ],
+          "score": 0.0,
+          "sources": [
+            "fixture.csv"
+          ],
+          "supervisor_name": null,
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized expertise field; full record text was used.",
+            "No recognized supervisor domain field; domain relevance is zero.",
+            "Supervisor name is missing; this result represents a document record."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "two"
+          ],
+          "score": 0.0,
+          "sources": [
+            "b.csv"
+          ],
+          "supervisor_name": "Wireless",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals."
+          ]
+        }
+      ],
+      "score_notice": "Heuristic relevance estimate, not verified supervisor suitability. Availability, willingness and qualifications have not been verified.",
+      "warnings": []
+    },
+    {
+      "candidate_count": 5,
+      "idea_id": "00000000000000000000000000000002",
+      "idea_title": "wi-fi csi",
+      "matches": [
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.666667,
+            "text_similarity": 0.745356
+          },
+          "matched_terms": [
+            "wi-fi",
+            "fall detection",
+            "csi",
+            "fi",
+            "fi csi",
+            "wi",
+            "wi fi"
+          ],
+          "reason": "TF-IDF cosine=0.745; keyword coverage=0.667; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1).",
+          "record_ids": [
+            "two"
+          ],
+          "score": 0.647214,
+          "sources": [
+            "b.csv"
+          ],
+          "supervisor_name": "Wireless",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "empty"
+          ],
+          "score": 0.0,
+          "sources": [
+            "fixture.csv"
+          ],
+          "supervisor_name": null,
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized expertise field; full record text was used.",
+            "No recognized supervisor domain field; domain relevance is zero.",
+            "Supervisor name is missing; this result represents a document record."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "copy",
+            "one"
+          ],
+          "score": 0.0,
+          "sources": [
+            "a.csv",
+            "copy.csv"
+          ],
+          "supervisor_name": "Vision",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "three"
+          ],
+          "score": 0.0,
+          "sources": [
+            "c.csv"
+          ],
+          "supervisor_name": "தமிழ்",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "four"
+          ],
+          "score": 0.0,
+          "sources": [
+            "d.csv"
+          ],
+          "supervisor_name": "සිංහල",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        }
+      ],
+      "score_notice": "Heuristic relevance estimate, not verified supervisor suitability. Availability, willingness and qualifications have not been verified.",
+      "warnings": [
+        "Description is empty; text similarity uses the title only.",
+        "Domain scoring is enabled but no idea domain was provided; that component is zero."
+      ]
+    },
+    {
+      "candidate_count": 5,
+      "idea_id": "00000000000000000000000000000003",
+      "idea_title": "தமிழ் ஆராய்ச்சி",
+      "matches": [
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 1.0,
+            "text_similarity": 0.80314
+          },
+          "matched_terms": [
+            "தமிழ்",
+            "ஆராய்ச்சி",
+            "தமிழ் ஆராய்ச்சி"
+          ],
+          "reason": "TF-IDF cosine=0.803; keyword coverage=1.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1).",
+          "record_ids": [
+            "three"
+          ],
+          "score": 0.781884,
+          "sources": [
+            "c.csv"
+          ],
+          "supervisor_name": "தமிழ்",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "empty"
+          ],
+          "score": 0.0,
+          "sources": [
+            "fixture.csv"
+          ],
+          "supervisor_name": null,
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized expertise field; full record text was used.",
+            "No recognized supervisor domain field; domain relevance is zero.",
+            "Supervisor name is missing; this result represents a document record."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "copy",
+            "one"
+          ],
+          "score": 0.0,
+          "sources": [
+            "a.csv",
+            "copy.csv"
+          ],
+          "supervisor_name": "Vision",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "two"
+          ],
+          "score": 0.0,
+          "sources": [
+            "b.csv"
+          ],
+          "supervisor_name": "Wireless",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "four"
+          ],
+          "score": 0.0,
+          "sources": [
+            "d.csv"
+          ],
+          "supervisor_name": "සිංහල",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        }
+      ],
+      "score_notice": "Heuristic relevance estimate, not verified supervisor suitability. Availability, willingness and qualifications have not been verified.",
+      "warnings": [
+        "Description is empty; text similarity uses the title only.",
+        "Domain scoring is enabled but no idea domain was provided; that component is zero."
+      ]
+    },
+    {
+      "candidate_count": 5,
+      "idea_id": "00000000000000000000000000000004",
+      "idea_title": "සිංහල පර්යේෂණ",
+      "matches": [
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.80314
+          },
+          "matched_terms": [
+            "පර්යේෂණ",
+            "සිංහල",
+            "සිංහල පර්යේෂණ"
+          ],
+          "reason": "TF-IDF cosine=0.803; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1).",
+          "record_ids": [
+            "four"
+          ],
+          "score": 0.481884,
+          "sources": [
+            "d.csv"
+          ],
+          "supervisor_name": "සිංහල",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "empty"
+          ],
+          "score": 0.0,
+          "sources": [
+            "fixture.csv"
+          ],
+          "supervisor_name": null,
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero.",
+            "No recognized expertise field; full record text was used.",
+            "No recognized supervisor domain field; domain relevance is zero.",
+            "Supervisor name is missing; this result represents a document record."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "copy",
+            "one"
+          ],
+          "score": 0.0,
+          "sources": [
+            "a.csv",
+            "copy.csv"
+          ],
+          "supervisor_name": "Vision",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "two"
+          ],
+          "score": 0.0,
+          "sources": [
+            "b.csv"
+          ],
+          "supervisor_name": "Wireless",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "three"
+          ],
+          "score": 0.0,
+          "sources": [
+            "c.csv"
+          ],
+          "supervisor_name": "தமிழ்",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        }
+      ],
+      "score_notice": "Heuristic relevance estimate, not verified supervisor suitability. Availability, willingness and qualifications have not been verified.",
+      "warnings": [
+        "Description is empty; text similarity uses the title only.",
+        "Keyword scoring is enabled but no keywords were provided; that component is zero.",
+        "Domain scoring is enabled but no idea domain was provided; that component is zero."
+      ]
+    },
+    {
+      "candidate_count": 5,
+      "idea_id": "00000000000000000000000000000005",
+      "idea_title": "unrelated quantum",
+      "matches": [
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "empty"
+          ],
+          "score": 0.0,
+          "sources": [
+            "fixture.csv"
+          ],
+          "supervisor_name": null,
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero.",
+            "No recognized expertise field; full record text was used.",
+            "No recognized supervisor domain field; domain relevance is zero.",
+            "Supervisor name is missing; this result represents a document record."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "copy",
+            "one"
+          ],
+          "score": 0.0,
+          "sources": [
+            "a.csv",
+            "copy.csv"
+          ],
+          "supervisor_name": "Vision",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "two"
+          ],
+          "score": 0.0,
+          "sources": [
+            "b.csv"
+          ],
+          "supervisor_name": "Wireless",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "three"
+          ],
+          "score": 0.0,
+          "sources": [
+            "c.csv"
+          ],
+          "supervisor_name": "தமிழ்",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        },
+        {
+          "components": {
+            "domain_relevance": 0.0,
+            "keyword_relevance": 0.0,
+            "text_similarity": 0.0
+          },
+          "matched_terms": [],
+          "reason": "TF-IDF cosine=0.000; keyword coverage=0.000; domain match=0. Weighted mean uses text/keyword/domain weights (0.6, 0.3, 0.1). No relevance was found under the configured scoring weights.",
+          "record_ids": [
+            "four"
+          ],
+          "score": 0.0,
+          "sources": [
+            "d.csv"
+          ],
+          "supervisor_name": "සිංහල",
+          "uncertainties": [
+            "Domain and text features can overlap; weights blend correlated signals.",
+            "Identity grouping uses name and affiliation/source; identities are unverified.",
+            "Keyword and TF-IDF features can overlap; weights blend correlated signals.",
+            "No positively weighted keywords; keyword relevance is zero.",
+            "No recognized supervisor domain field; domain relevance is zero."
+          ]
+        }
+      ],
+      "score_notice": "Heuristic relevance estimate, not verified supervisor suitability. Availability, willingness and qualifications have not been verified.",
+      "warnings": [
+        "Description is empty; text similarity uses the title only.",
+        "Keyword scoring is enabled but no keywords were provided; that component is zero.",
+        "Domain scoring is enabled but no idea domain was provided; that component is zero.",
+        "No idea text terms occur in the candidate vocabulary; text similarity is zero."
+      ]
+    }
+  ],
+  "ideas": [
+    {
+      "description": "fish sensors",
+      "domain": "Computer Science",
+      "idea_id": "00000000000000000000000000000001",
+      "keyword_weights": {
+        "vision": 2.0
+      },
+      "keywords": [
+        "vision",
+        "sensors"
+      ],
+      "title": "computer vision"
+    },
+    {
+      "description": "",
+      "domain": null,
+      "idea_id": "00000000000000000000000000000002",
+      "keyword_weights": {},
+      "keywords": [
+        "wi-fi",
+        "ai",
+        "fall detection"
+      ],
+      "title": "wi-fi csi"
+    },
+    {
+      "description": "",
+      "domain": null,
+      "idea_id": "00000000000000000000000000000003",
+      "keyword_weights": {},
+      "keywords": [
+        "தமிழ்"
+      ],
+      "title": "தமிழ் ஆராய்ச்சி"
+    },
+    {
+      "description": "",
+      "domain": null,
+      "idea_id": "00000000000000000000000000000004",
+      "keyword_weights": {},
+      "keywords": [],
+      "title": "සිංහල පර්යේෂණ"
+    },
+    {
+      "description": "",
+      "domain": null,
+      "idea_id": "00000000000000000000000000000005",
+      "keyword_weights": {},
+      "keywords": [],
+      "title": "unrelated quantum"
+    }
+  ],
+  "purpose": "Synthetic compatibility snapshot, not labeled suitability ground truth.",
+  "records": [
+    {
+      "extracted_at": "2026-01-01T00:00:00Z",
+      "fields": {
+        "Domain": "Computer Science",
+        "Expertise": "computer vision fish sensors",
+        "Name": "Vision"
+      },
+      "metadata": {
+        "row": 2
+      },
+      "record_id": "one",
+      "source": "a.csv",
+      "source_type": "csv",
+      "text": "Name: Vision\nExpertise: computer vision fish sensors\nDomain: Computer Science",
+      "title": "a.csv"
+    },
+    {
+      "extracted_at": "2026-01-01T00:00:00Z",
+      "fields": {
+        "Domain": "Wireless",
+        "Expertise": "wi-fi csi fall detection",
+        "Name": "Wireless"
+      },
+      "metadata": {
+        "row": 2
+      },
+      "record_id": "two",
+      "source": "b.csv",
+      "source_type": "csv",
+      "text": "Name: Wireless\nExpertise: wi-fi csi fall detection\nDomain: Wireless",
+      "title": "b.csv"
+    },
+    {
+      "extracted_at": "2026-01-01T00:00:00Z",
+      "fields": {
+        "Expertise": "தமிழ் ஆராய்ச்சி vision",
+        "Name": "தமிழ்"
+      },
+      "metadata": {
+        "row": 2
+      },
+      "record_id": "three",
+      "source": "c.csv",
+      "source_type": "csv",
+      "text": "Name: தமிழ்\nExpertise: தமிழ் ஆராய்ச்சி vision",
+      "title": "c.csv"
+    },
+    {
+      "extracted_at": "2026-01-01T00:00:00Z",
+      "fields": {
+        "Expertise": "සිංහල පර්යේෂණ sensors",
+        "Name": "සිංහල"
+      },
+      "metadata": {
+        "row": 2
+      },
+      "record_id": "four",
+      "source": "d.csv",
+      "source_type": "csv",
+      "text": "Name: සිංහල\nExpertise: සිංහල පර්යේෂණ sensors",
+      "title": "d.csv"
+    },
+    {
+      "extracted_at": "2026-01-01T00:00:00Z",
+      "fields": {},
+      "metadata": {
+        "row": 2
+      },
+      "record_id": "empty",
+      "source": "fixture.csv",
+      "source_type": "csv",
+      "text": "!!!",
+      "title": "fixture.csv"
+    },
+    {
+      "extracted_at": "2026-01-01T00:00:00Z",
+      "fields": {
+        "Domain": "Computer Science",
+        "Expertise": "computer vision fish sensors",
+        "Name": "Vision"
+      },
+      "metadata": {
+        "row": 2
+      },
+      "record_id": "copy",
+      "source": "copy.csv",
+      "source_type": "csv",
+      "text": "Name: Vision\nExpertise: computer vision fish sensors\nDomain: Computer Science",
+      "title": "a.csv"
+    }
+  ]
+}

@@ -251,11 +251,10 @@ class RecordStore:
             for record in result.records:
                 if record.source != result.source:
                     raise StorageError("Record source does not match its import provenance.")
-                payload = record.to_dict()
-                fields = canonical_json(payload["fields"])
-                metadata = canonical_json(payload["metadata"])
-                values = (record.record_id, record.source, record.source_type, record.title,
-                          record.text, fields, payload["extracted_at"], metadata, content_hash(record))
+                # Serialize only what persistence needs. Public to_dict() still
+                # returns an independent deep copy; storage need not copy it first.
+                fields = canonical_json(record.fields)
+                metadata = canonical_json(record.metadata)
                 previous = connection.execute("SELECT * FROM records WHERE record_id=?",
                                               (record.record_id,)).fetchone()
                 if previous is not None:
@@ -267,6 +266,9 @@ class RecordStore:
                         raise StorageError("Record identifier collision; import rolled back without replacing data.")
                     duplicates += 1
                     continue
+                values = (record.record_id, record.source, record.source_type, record.title,
+                          record.text, fields, record.extracted_at.isoformat().replace("+00:00", "Z"),
+                          metadata, content_hash(record))
                 if connection.execute("SELECT 1 FROM records WHERE content_hash=? LIMIT 1",
                                       (values[-1],)).fetchone():
                     content_duplicates += 1

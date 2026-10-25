@@ -197,3 +197,36 @@ are ignored or rejected without printing their contents. Only validated summary
 fields are shown. Startup, settings inspection and missing-audit inspection do
 not create an output directory or database. No schema change or new runtime
 dependency was introduced by this phase.
+
+
+## Phase F: measured resource behavior
+
+Local input descriptors now use no-follow/nonblocking opens with regular-file
+and size checks after open. Explicit input symlinks resolve normally, but a final
+symlink replacement is refused and a FIFO substitution cannot block the reader.
+Snapshot size, mtime and ctime are checked after reading; changing files are
+refused with a retry message. Only the checked input size plus a growth byte is
+requested, avoiding a maximum-sized allocation for every small file.
+
+CSV decoding is incremental over a bounded in-memory snapshot. PDF pages are
+iterated lazily with per-page cleanup, after extraction permissions are checked.
+Oversized page trees no longer eagerly construct every page wrapper during either
+iteration or cleanup. PDF metadata/xref parsing and arbitrary document contents
+still require parser resources: these changes do not create a CPU/RAM sandbox.
+
+Ranking normalization is per-comparison and discarded afterward. Only top-K
+sparse explanations are built, with compatibility tested against synthetic
+pre-optimization results. No global document cache, embedding download or remote
+provider was introduced. Persistence still compares every duplicate ID's stored
+payload; it never trusts the identifier or import manifest alone to skip safety
+checks, and the public deep-copy serialization interface remains intact.
+
+The opt-in benchmark generates only synthetic fixtures in unique private output
+workspaces, with no network or existing user data access. It uses serial child
+interpreters for isolated measurements, not production parallelism. Cleanup is
+limited to each workspace it just created and requires symlink-resistant removal;
+reports are published exclusively. Failed/killed workers are not reported as
+successful and may leave synthetic artifacts. `--keep-workloads` explicitly
+retains fixtures. Reports do not establish real-world relevance accuracy or a
+security guarantee. No data migration or security/network policy relaxation was
+needed for the measured improvements.

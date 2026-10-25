@@ -444,7 +444,7 @@ values may be absent or stale. DOCX headers, footers, text boxes and nested tabl
 are not imported. HTML is not rendered and Markdown is retained as source text.
 Parser resource limits cannot guarantee a fixed peak memory usage or CPU time.
 
-Next: broader performance baselines and reliability/security review. JavaScript
+Next: expanded adversarial testing and security review (Phase G). JavaScript
 rendering, authenticated sessions and broader API support remain deferred until
 equivalent transport-level network policy can be enforced.
 
@@ -526,3 +526,37 @@ Three fresh-process `--plain --quiet` runs including interpreter startup, securi
 checks and immediate exit took 0.229, 0.134 and 0.138 seconds on the development
 environment. These are small startup samples with filesystem caches in effect,
 not idle CPU measurements or a comprehensive Phase F performance assessment.
+
+
+## Phase F: performance and reliability
+
+Run the opt-in offline synthetic benchmark with:
+
+```zsh
+python -m benchmarks.run --rows 5000 --repeats 3
+```
+
+Reports are private files under a new directory in configured output. The tool
+never reads user documents or the existing application database and cleans only
+its own synthetic workspaces by default. Memory/profiling modes, methodology,
+observed before/after results and limitations are in [PERFORMANCE.md](PERFORMANCE.md).
+
+Measured warm ranking improved from 0.267 s to 0.050 s and storage-only reimport
+from 0.118 s to 0.049 s on the documented fixtures. CSV Python allocation peak fell
+from about 20.0 MiB to 7.5 MiB. Input reads reject concurrent changes and no longer
+preallocate the full configured maximum for every small file. CSV decoding is
+incremental over the existing bounded snapshot. PDF page limits are enforced
+before constructing later page wrappers; permission checks and no-OCR behavior
+remain intact. Public record serialization, ranking outputs, SQL transactions,
+security controls and schema version 2 are preserved. No runtime dependency or
+application concurrency was added.
+
+
+Phase F verification: **334 tests pass**, including the unchanged ranking output
+snapshot, file-change/FIFO/symlink races, lazy PDF limits and cleanup, nested-record
+persistence, all benchmark modes/workloads and honest failure reporting. The
+11-case self-check, imports, `pip check`, installer syntax and diff checks pass;
+the installed-package dependency audit reports no known vulnerabilities. A
+20,000-row synthetic pipeline run also completed. Hard parser CPU/RAM isolation,
+real-world relevance evaluation and live-network performance remain outside these
+measurements.

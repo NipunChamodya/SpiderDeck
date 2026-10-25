@@ -50,13 +50,22 @@ def import_document(requested: str | Path, config: ImportConfig | None = None) -
         if path.suffix.lower() not in FORMATS:
             raise DocumentImportError("Unsupported format. Choose CSV, XLSX, PDF, DOCX, JSON, MD, TXT or HTML.")
         # Check the opened descriptor too, so a changing pathname cannot bypass size/type checks.
-        with path.open("rb") as handle:
+        descriptor = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+        with os.fdopen(descriptor, "rb") as handle:
             info = os.fstat(handle.fileno())
             if not stat.S_ISREG(info.st_mode):
                 raise DocumentImportError("Choose a readable regular file, not a directory or device.")
             if info.st_size > config.max_file_bytes:
                 raise DocumentImportError("File exceeds import.max_file_bytes; choose a smaller document.")
-            data = handle.read(config.max_file_bytes + 1)
+            # Reading the configured maximum preallocates a large buffer even
+            # for tiny files. Use the checked size and one growth-detection byte.
+            data = handle.read(info.st_size + 1)
+            after = os.fstat(handle.fileno())
+            if after.st_size > config.max_file_bytes or len(data) > config.max_file_bytes:
+                raise DocumentImportError("File grew beyond the configured size limit.")
+            if (len(data) != info.st_size or after.st_size != info.st_size
+                    or after.st_mtime_ns != info.st_mtime_ns or after.st_ctime_ns != info.st_ctime_ns):
+                raise DocumentImportError("Input changed while reading. Retry when the file is stable.")
         if len(data) > config.max_file_bytes:
             raise DocumentImportError("File grew beyond the configured size limit.")
         return _parse(path, data, config)
@@ -120,7 +129,10 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
             add("\n".join(f"{key}: {value}" for key, value in fields.items()), fields, location)
 
     if kind == "csv":
-        rows(csv.reader(io.StringIO(data.decode("utf-8-sig"), newline=""), strict=True))
+        # Decode incrementally instead of holding bytes + a complete Unicode
+        # string + StringIO's character buffer alongside the extracted records.
+        with io.TextIOWrapper(io.BytesIO(data), encoding="utf-8-sig", newline="") as text_stream:
+            rows(csv.reader(text_stream, strict=True))
     elif kind == "xlsx":
         _archive_check(data, config)
         from openpyxl import load_workbook
@@ -157,21 +169,36 @@ def _parse(path: Path, data: bytes, config: ImportConfig) -> ImportResult:
                 "PDF parser is outdated or unrecognized; install the patched requirements before importing PDFs."
             )
         import pdfplumber
+        from pdfplumber.page import Page
+        from pdfminer.pdfpage import PDFPage
         from pdfplumber.utils.exceptions import PdfminerException
         from pdfminer.psparser import PSException
         try:
-            with pdfplumber.open(io.BytesIO(data)) as pdf:
-                if not pdf.doc.is_extractable:
-                    raise DocumentImportError("PDF disallows text extraction; request an authorized export.")
-                for number, page in enumerate(pdf.pages, 1):
-                    if number > config.max_pdf_pages:
-                        raise DocumentImportError("PDF exceeds import.max_pdf_pages; split it first.")
-                    text = page.extract_text() or ""
-                    if len(text.strip()) < config.min_pdf_text_chars:
-                        warnings.append(f"Page {number}: insufficient extractable text; may be scanned. No OCR performed.")
-                    else:
-                        add(text, {}, {"page": number})
-                    page.close()
+            with io.BytesIO(data) as stream:
+                pdf = pdfplumber.open(stream)
+                try:
+                    if not pdf.doc.is_extractable:
+                        raise DocumentImportError("PDF disallows text extraction; request an authorized export.")
+                    pdf.doc.caching = False
+                    doctop = 0
+                    for number, raw_page in enumerate(PDFPage.create_pages(pdf.doc), 1):
+                        if number > config.max_pdf_pages:
+                            raise DocumentImportError("PDF exceeds import.max_pdf_pages; split it first.")
+                        page = Page(pdf, raw_page, page_number=number, initial_doctop=doctop)
+                        try:
+                            text = page.extract_text() or ""
+                            if len(text.strip()) < config.min_pdf_text_chars:
+                                warnings.append(f"Page {number}: insufficient extractable text; may be scanned. No OCR performed.")
+                            else:
+                                add(text, {}, {"page": number})
+                            doctop += page.height
+                        finally:
+                            page.close()
+                finally:
+                    # PDF.close() enumerates pdf.pages, even after an early limit
+                    # failure. We own the stream and close each live page above;
+                    # clear container caches without constructing every page again.
+                    pdf.flush_cache()
         except (PSException, PdfminerException) as exc:
             raise DocumentImportError("Unreadable or encrypted PDF; request an authorized text-based export.") from exc
     else:

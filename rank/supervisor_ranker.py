@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import heapq
 import unicodedata
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Iterable
 
 from core.config import RankingConfig
@@ -48,13 +48,12 @@ def _strings(value: object) -> list[str]:
     return result
 
 
-def _values(record: ExtractedRecord, aliases: list[str]) -> list[str]:
-    columns = {_column(key): value for key, value in record.fields.items()}
-    return [text for alias in aliases for text in _strings(columns.get(_column(alias)))]
+def _values(columns: dict[str, object], aliases: tuple[str, ...]) -> list[str]:
+    return [text for alias in aliases for text in _strings(columns.get(alias))]
 
 
-def _first(record: ExtractedRecord, aliases: list[str]) -> str | None:
-    return next((value for value in _values(record, aliases)
+def _first(columns: dict[str, object], aliases: tuple[str, ...]) -> str | None:
+    return next((value for value in _values(columns, aliases)
                  if value.casefold() not in {"n/a", "na", "unknown", "-", "none"}), None)
 
 
@@ -114,10 +113,14 @@ def _candidates(records: Iterable[ExtractedRecord], config: RankingConfig) -> li
 
     by_identity: dict[tuple[str, ...], _Candidate] = {}
     by_content: dict[str, _Candidate] = {}
+    name_fields, email_fields, affiliation_fields, expertise_fields, domain_fields = (
+        tuple(_column(alias) for alias in getattr(config, field_name)) for field_name in (
+            "name_fields", "email_fields", "affiliation_fields", "expertise_fields", "domain_fields"))
     for record in sorted(bounded, key=lambda row: (row.source, row.source_type, row.record_id)):
-        name = _first(record, config.name_fields)
-        email = _first(record, config.email_fields)
-        affiliation = _first(record, config.affiliation_fields)
+        columns = {_column(key): value for key, value in record.fields.items()}
+        name = _first(columns, name_fields)
+        email = _first(columns, email_fields)
+        affiliation = _first(columns, affiliation_fields)
         exact = content_hash(record)
         if name and email:
             identity = ("email", email.casefold())
@@ -137,11 +140,11 @@ def _candidates(records: Iterable[ExtractedRecord], config: RankingConfig) -> li
             candidate = _Candidate(name)
         by_identity[identity] = candidate
         by_content[exact] = candidate
-        expertise = _values(record, config.expertise_fields)
+        expertise = _values(columns, expertise_fields)
         text = "\n".join(expertise) if expertise else record.text
         normalized = unicodedata.normalize("NFC", text).strip()
         candidate.chunks.setdefault(normalized.casefold(), normalized)
-        candidate.domains.update(_values(record, config.domain_fields))
+        candidate.domains.update(_values(columns, domain_fields))
         candidate.sources.add(record.source)
         candidate.identifiers.add(record.record_id)
         if not name:
@@ -158,19 +161,22 @@ def _candidates(records: Iterable[ExtractedRecord], config: RankingConfig) -> li
         (candidate.name or "").casefold(), tuple(sorted(candidate.sources)), tuple(sorted(candidate.identifiers))))
 
 
-def _contains(tokens: list[str], phrase: str) -> bool:
-    term = tokenize(phrase)
-    return bool(term) and any(tokens[index:index + len(term)] == term
-                              for index in range(len(tokens) - len(term) + 1))
+def _token_text(text: str) -> str:
+    # Tokenizer output contains no NULs; sentinels preserve exact token/phrase
+    # boundaries while allowing compact cached strings and C-level substring search.
+    tokens = tokenize(text)
+    return "\x00" + "\x00".join(tokens) + "\x00" if tokens else ""
 
 
-def _keyword_score(idea: ResearchIdea, tokens: list[str]) -> tuple[float, list[str]]:
-    total = matched = 0.0
+def _contains(tokens: str, phrase: str) -> bool:
+    return bool(phrase) and phrase in tokens
+
+
+def _keyword_score(patterns: list[tuple[str, float, str]], total: float, tokens: str) -> tuple[float, list[str]]:
+    matched = 0.0
     terms: list[str] = []
-    for term in idea.keywords:
-        weight = idea.keyword_weights.get(term, 1.0)
-        total += weight
-        if weight > 0 and _contains(tokens, term):
+    for term, weight, pattern in patterns:
+        if weight > 0 and _contains(tokens, pattern):
             matched += weight
             terms.append(term)
     return (matched / total if total else 0.0), terms
@@ -203,14 +209,20 @@ def rank_records(records: Iterable[ExtractedRecord], ideas: Iterable[ResearchIde
         raise RankingError("Offline ranking dependencies are missing; install requirements.txt.") from exc
 
     texts = [candidate.text for candidate in candidates]
+    # Bounded, per-comparison normalization; nothing is cached across user sessions.
+    token_texts = [_token_text(text) for text in texts]
+    domain_texts = [[_token_text(value) for value in candidate.domains] for candidate in candidates]
     vectorizer = TfidfVectorizer(tokenizer=tokenize, token_pattern=None, lowercase=False,
                                  ngram_range=(1, 2), sublinear_tf=True, max_features=config.max_features,
                                  dtype=np.float32)
-    matrix = vectorizer.fit_transform(texts) if any(tokenize(text) for text in texts) else None
+    matrix = vectorizer.fit_transform(texts) if any(token_texts) else None
     features = vectorizer.get_feature_names_out() if matrix is not None else None
     weights = (config.text_weight, config.keyword_weight, config.domain_weight)
     results: list[IdeaRanking] = []
     for idea in selected:
+        patterns = [(term, idea.keyword_weights.get(term, 1.0), _token_text(term)) for term in idea.keywords]
+        keyword_total = sum(weight for _, weight, _ in patterns)
+        domain_pattern = _token_text(idea.domain) if idea.domain else ""
         query = vectorizer.transform([idea.title + "\n" + idea.description]) if matrix is not None else None
         similarities = (cosine_similarity(matrix, query).ravel() if matrix is not None
                         else np.zeros(len(candidates)))
@@ -224,17 +236,10 @@ def rank_records(records: Iterable[ExtractedRecord], ideas: Iterable[ResearchIde
         if matrix is None or query.nnz == 0:
             warnings.append("No idea text terms occur in the candidate vocabulary; text similarity is zero.")
 
-        def matches() -> Iterable[RankedMatch]:
+        def matches() -> Iterable[tuple[int, RankedMatch]]:
             for index, candidate in enumerate(candidates):
-                tokens = tokenize(texts[index])
-                keyword, terms = _keyword_score(idea, tokens)
-                domain = float(bool(idea.domain) and any(_contains(tokenize(value), idea.domain)
-                                                         for value in candidate.domains))
-                if matrix is not None:
-                    contributions = matrix[index].multiply(query).tocsr()
-                    shared = sorted(zip(contributions.indices, contributions.data),
-                                    key=lambda item: (-float(item[1]), str(features[item[0]])))[:10]
-                    terms.extend(str(features[column]) for column, value in shared if value > 0)
+                keyword, terms = _keyword_score(patterns, keyword_total, token_texts[index])
+                domain = float(any(_contains(value, domain_pattern) for value in domain_texts[index]))
                 components = dict(text_similarity=round(float(similarities[index]), 6),
                                   keyword_relevance=round(keyword, 6), domain_relevance=domain)
                 score = sum(weight * value for weight, value in zip(weights, (
@@ -242,7 +247,7 @@ def rank_records(records: Iterable[ExtractedRecord], ideas: Iterable[ResearchIde
                 uncertainties = set(candidate.warnings)
                 if config.domain_weight and not candidate.domains:
                     uncertainties.add("No recognized supervisor domain field; domain relevance is zero.")
-                if not any(idea.keyword_weights.get(term, 1) > 0 for term in idea.keywords) and config.keyword_weight:
+                if not keyword_total and config.keyword_weight:
                     uncertainties.add("No positively weighted keywords; keyword relevance is zero.")
                 reason = (f"TF-IDF cosine={components['text_similarity']:.3f}; "
                           f"keyword coverage={keyword:.3f}; domain match={domain:.0f}. "
@@ -253,11 +258,21 @@ def rank_records(records: Iterable[ExtractedRecord], ideas: Iterable[ResearchIde
                     uncertainties.add("Keyword and TF-IDF features can overlap; weights blend correlated signals.")
                 if config.domain_weight:
                     uncertainties.add("Domain and text features can overlap; weights blend correlated signals.")
-                yield RankedMatch(candidate.name, round(min(1.0, max(0.0, score)), 6), components,
-                                  tuple(dict.fromkeys(terms)), tuple(sorted(candidate.sources)),
-                                  tuple(sorted(candidate.identifiers)), reason, tuple(sorted(uncertainties)))
+                yield index, RankedMatch(candidate.name, round(min(1.0, max(0.0, score)), 6), components,
+                                         tuple(dict.fromkeys(terms)), tuple(sorted(candidate.sources)),
+                                         tuple(sorted(candidate.identifiers)), reason, tuple(sorted(uncertainties)))
 
-        best = heapq.nsmallest(config.top_k, matches(), key=lambda match: (
-            -match.score, (match.supervisor_name or "").casefold(), match.sources, match.record_ids))
-        results.append(IdeaRanking(idea.idea_id, idea.title, len(candidates), best, tuple(warnings)))
+        best = heapq.nsmallest(config.top_k, matches(), key=lambda item: (
+            -item[1].score, (item[1].supervisor_name or "").casefold(), item[1].sources, item[1].record_ids))
+        explained: list[RankedMatch] = []
+        for index, match in best:
+            terms = list(match.matched_terms)
+            # Sparse evidence is needed only for returned results, not all N candidates.
+            if matrix is not None:
+                contributions = matrix[index].multiply(query).tocsr()
+                shared = sorted(zip(contributions.indices, contributions.data),
+                                key=lambda item: (-float(item[1]), str(features[item[0]])))[:10]
+                terms.extend(str(features[column]) for column, value in shared if value > 0)
+            explained.append(replace(match, matched_terms=tuple(dict.fromkeys(terms))))
+        results.append(IdeaRanking(idea.idea_id, idea.title, len(candidates), explained, tuple(warnings)))
     return results
